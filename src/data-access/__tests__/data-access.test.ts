@@ -4,12 +4,16 @@ describe("Data Access Layer – smoke", () => {
   it("should export the expected server action functions", async () => {
     const mod = await import("../index");
     const functionNames = [
-      "createRootNode",
+      "createChat",
       "forkNode",
       "appendMessage",
       "getNode",
       "getNodeMessages",
-      "getUserRootNode",
+      "getUserChats",
+      "getChat",
+      "getChatTree",
+      "getChatRootNode",
+      "deleteChat",
       "getAncestorMessages",
       "editLastMessage",
       "deleteNode",

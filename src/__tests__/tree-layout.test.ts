@@ -48,6 +48,7 @@ describe("calculateTreeLayout", () => {
   const mkNode = (id: string, parentId: string | null): Node => ({
     id,
     userId: "u1",
+    chatId: "chat1",
     parentId,
     title: null,
     path: `/${id}`,

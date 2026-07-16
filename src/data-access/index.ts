@@ -13,7 +13,7 @@ import { headers } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { messages, nodes } from "@/lib/schema";
+import { chats, messages, nodes } from "@/lib/schema";
 
 async function requireAuth() {
   const session = await auth.api.getSession({
@@ -23,18 +23,66 @@ async function requireAuth() {
   return session;
 }
 
-export async function createRootNode() {
+export async function createChat() {
   const session = await requireAuth();
-  const id = uuidv4();
-  const path = `/${id}`;
-  await db.insert(nodes).values({
-    id,
+  const chatId = uuidv4();
+  const nodeId = uuidv4();
+
+  await db.insert(chats).values({
+    id: chatId,
     userId: session.user.id,
-    parentId: null,
-    path,
     title: null,
   });
-  return getNode(id);
+
+  await db.insert(nodes).values({
+    id: nodeId,
+    userId: session.user.id,
+    chatId,
+    parentId: null,
+    path: `/${nodeId}`,
+    title: null,
+  });
+
+  return { chat: await getChat(chatId), node: (await getNode(nodeId))! };
+}
+
+export async function getUserChats() {
+  const session = await requireAuth();
+  return db
+    .select()
+    .from(chats)
+    .where(eq(chats.userId, session.user.id))
+    .orderBy(desc(chats.createdAt));
+}
+
+export async function getChat(chatId: string) {
+  const result = await db.select().from(chats).where(eq(chats.id, chatId));
+  return result[0] ?? null;
+}
+
+export async function getChatTree(chatId: string) {
+  const session = await requireAuth();
+  const chat = await getChat(chatId);
+  if (!chat || chat.userId !== session.user.id) return [];
+
+  return db.select().from(nodes).where(eq(nodes.chatId, chatId));
+}
+
+export async function getChatRootNode(chatId: string) {
+  await requireAuth();
+  const result = await db
+    .select()
+    .from(nodes)
+    .where(and(eq(nodes.chatId, chatId), isNull(nodes.parentId)));
+  return result[0] ?? null;
+}
+
+export async function deleteChat(chatId: string) {
+  const session = await requireAuth();
+  const chat = await getChat(chatId);
+  if (!chat || chat.userId !== session.user.id) throw new Error("Unauthorized");
+
+  await db.delete(chats).where(eq(chats.id, chatId));
 }
 
 export async function forkNode(parentId: string) {
@@ -48,6 +96,7 @@ export async function forkNode(parentId: string) {
   await db.insert(nodes).values({
     id,
     userId: session.user.id,
+    chatId: parent.chatId,
     parentId,
     path,
     title: null,
@@ -191,6 +240,11 @@ export async function deleteNode(nodeId: string) {
   const node = await getNode(nodeId);
   if (!node || node.userId !== session.user.id) throw new Error("Unauthorized");
 
+  if (!node.parentId) {
+    await deleteChat(node.chatId);
+    return;
+  }
+
   const allDescendantIds = await collectDescendantIds(nodeId, session.user.id);
   const allIds = [nodeId, ...allDescendantIds];
 
@@ -306,5 +360,11 @@ export async function generateTitle(nodeId: string) {
 
   const cleanTitle = title.trim().slice(0, 80);
   await db.update(nodes).set({ title: cleanTitle }).where(eq(nodes.id, nodeId));
+  if (node.chatId) {
+    await db
+      .update(chats)
+      .set({ title: cleanTitle })
+      .where(eq(chats.id, node.chatId));
+  }
   return cleanTitle;
 }

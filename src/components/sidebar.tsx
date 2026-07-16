@@ -1,22 +1,22 @@
 "use client";
 
 import { signOut, useSession } from "@/lib/auth-client";
-import type { Node } from "@/lib/types";
+import type { Chat } from "@/lib/types";
 
 interface SidebarProps {
-  rootNode: Node | null;
-  currentNode: Node | null;
-  onNewChat: () => void;
-  onSelectNode: (node: Node) => void;
+  chats: Chat[];
+  selectedChat: Chat | null;
+  onCreateChat: () => void;
+  onSelectChat: (chat: Chat) => void;
   isOpen: boolean;
   onToggle: () => void;
 }
 
 export function Sidebar({
-  rootNode,
-  currentNode,
-  onNewChat,
-  onSelectNode,
+  chats,
+  selectedChat,
+  onCreateChat,
+  onSelectChat,
   isOpen,
   onToggle,
 }: SidebarProps) {
@@ -57,26 +57,27 @@ export function Sidebar({
 
               <button
                 type="button"
-                onClick={onNewChat}
+                onClick={onCreateChat}
                 className="w-full px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               >
                 New Chat
               </button>
 
               <div className="space-y-1">
-                {rootNode && (
+                {chats.map((chat) => (
                   <button
+                    key={chat.id}
                     type="button"
-                    onClick={() => onSelectNode(rootNode)}
+                    onClick={() => onSelectChat(chat)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      currentNode?.id === rootNode.id
+                      selectedChat?.id === chat.id
                         ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
                         : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     }`}
                   >
-                    {rootNode.title || "Root Conversation"}
+                    {chat.title || "Untitled Chat"}
                   </button>
-                )}
+                ))}
               </div>
 
               <button

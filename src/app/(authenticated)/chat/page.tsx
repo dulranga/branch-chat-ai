@@ -5,22 +5,24 @@ import { ChatArea } from "@/components/chat-area";
 import { Sidebar } from "@/components/sidebar";
 import { MobileTabBar, TreePanel } from "@/components/tree-panel";
 import {
-  createRootNode,
+  createChat,
   deleteNode,
   editLastMessage,
   forkNode,
   getAncestorMessages,
+  getChatRootNode,
+  getChatTree,
   getNodeMessages,
-  getSubtree,
-  getUserRootNode,
+  getUserChats,
   mergeNode,
 } from "@/data-access";
 import { useSession } from "@/lib/auth-client";
-import type { Message, Node } from "@/lib/types";
+import type { Chat, Message, Node } from "@/lib/types";
 
 export default function ChatPage() {
   const { data: session, isPending } = useSession();
-  const [rootNode, setRootNode] = useState<Node | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [currentNode, setCurrentNode] = useState<Node | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [treeNodes, setTreeNodes] = useState<Node[]>([]);
@@ -43,6 +45,24 @@ export default function ChatPage() {
     setMessages(msgs as unknown as Message[]);
   }, []);
 
+  /** Load a chat's tree and messages. */
+  const loadChat = useCallback(
+    async (chat: Chat) => {
+      setSelectedChat(chat);
+      const root = await getChatRootNode(chat.id);
+      setCurrentNode(root as unknown as Node | null);
+      if (root) {
+        await loadFullMessages(root.id);
+        const tree = await getChatTree(chat.id);
+        setTreeNodes(tree as unknown as Node[]);
+      } else {
+        setMessages([]);
+        setTreeNodes([]);
+      }
+    },
+    [loadFullMessages],
+  );
+
   useEffect(() => {
     if (isPending) return;
     if (!session) {
@@ -51,27 +71,23 @@ export default function ChatPage() {
     }
 
     async function init() {
-      const root = await getUserRootNode();
-      setRootNode(root as unknown as Node | null);
-      if (root) {
-        setCurrentNode(root as unknown as Node);
-        setMessages([]);
-        setTreeNodes([root as unknown as Node]);
-        await loadFullMessages(root.id);
-        const subtree = await getSubtree(root.id);
-        setTreeNodes(subtree as unknown as Node[]);
-      }
+      const userChats = await getUserChats();
+      setChats(userChats as unknown as Chat[]);
       setLoading(false);
     }
     init();
-  }, [session, isPending, loadFullMessages]);
+  }, [session, isPending]);
 
-  async function handleNewChat() {
-    const root = await createRootNode();
-    setRootNode(root as unknown as Node);
-    setCurrentNode(root as unknown as Node);
-    setMessages([]);
-    setTreeNodes([root as unknown as Node]);
+  async function handleCreateChat() {
+    const { chat, node } = await createChat();
+    const chatObj = chat as unknown as Chat;
+    setChats((prev) => [chatObj, ...prev]);
+    setCurrentNode(node as unknown as Node);
+    await loadChat(chatObj);
+  }
+
+  async function handleSelectChat(chat: Chat) {
+    await loadChat(chat);
   }
 
   async function handleSendMessage(content: string) {
@@ -96,12 +112,10 @@ export default function ChatPage() {
       body: JSON.stringify({ nodeId: currentNode.id, message: content }),
     });
 
-    if (res.ok) {
+    if (res.ok && selectedChat) {
       await loadOwnMessages(currentNode.id);
-      if (rootNode) {
-        const subtree = await getSubtree(rootNode.id);
-        setTreeNodes(subtree as unknown as Node[]);
-      }
+      const tree = await getChatTree(selectedChat.id);
+      setTreeNodes(tree as unknown as Node[]);
     }
   }
 
@@ -111,9 +125,9 @@ export default function ChatPage() {
     const child = await forkNode(currentNode.id);
     setCurrentNode(child as unknown as Node);
     setMessages([]);
-    if (rootNode) {
-      const subtree = await getSubtree(rootNode.id);
-      setTreeNodes(subtree as unknown as Node[]);
+    if (selectedChat) {
+      const tree = await getChatTree(selectedChat.id);
+      setTreeNodes(tree as unknown as Node[]);
     }
   }
 
@@ -125,40 +139,37 @@ export default function ChatPage() {
   }
 
   async function handleDeleteNode(nodeId: string) {
+    const wasRoot =
+      currentNode?.id === nodeId && currentNode?.parentId === null;
     await deleteNode(nodeId);
 
-    if (nodeId === rootNode?.id) {
-      setRootNode(null);
+    if (wasRoot) {
+      setSelectedChat(null);
       setCurrentNode(null);
       setMessages([]);
       setTreeNodes([]);
-    } else if (nodeId === currentNode?.id) {
-      if (rootNode) {
-        setCurrentNode(rootNode as unknown as Node);
-        await loadFullMessages(rootNode.id);
-        const subtree = await getSubtree(rootNode.id);
-        setTreeNodes(subtree as unknown as Node[]);
-      }
-    } else {
-      const subtree = await getSubtree(rootNode?.id || nodeId);
-      setTreeNodes(subtree as unknown as Node[]);
+      const userChats = await getUserChats();
+      setChats(userChats as unknown as Chat[]);
+    } else if (selectedChat) {
+      const tree = await getChatTree(selectedChat.id);
+      setTreeNodes(tree as unknown as Node[]);
     }
   }
 
   async function handleMergeNode(nodeId: string) {
     await mergeNode(nodeId);
-    if (rootNode) {
-      const subtree = await getSubtree(rootNode.id);
-      setTreeNodes(subtree as unknown as Node[]);
+    if (selectedChat) {
+      const tree = await getChatTree(selectedChat.id);
+      setTreeNodes(tree as unknown as Node[]);
     }
   }
 
   async function handleSelectNode(node: Node) {
     setCurrentNode(node);
     await loadFullMessages(node.id);
-    if (rootNode) {
-      const subtree = await getSubtree(rootNode.id);
-      setTreeNodes(subtree as unknown as Node[]);
+    if (selectedChat) {
+      const tree = await getChatTree(selectedChat.id);
+      setTreeNodes(tree as unknown as Node[]);
     }
   }
 
@@ -194,10 +205,10 @@ export default function ChatPage() {
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full">
       <Sidebar
-        rootNode={rootNode}
-        currentNode={currentNode}
-        onNewChat={handleNewChat}
-        onSelectNode={handleSelectNode}
+        chats={chats}
+        selectedChat={selectedChat}
+        onCreateChat={handleCreateChat}
+        onSelectChat={handleSelectChat}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />

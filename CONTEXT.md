@@ -5,28 +5,33 @@ An AI chat application where conversations form a tree structure. Each Node is a
 ## Language
 
 **User**:
-A person (typically a student) using the application. Each User has exactly one Root Node and owns all Nodes in their tree. Authentication via better-auth library.
+A person (typically a student) using the application. A User can have multiple Chats, each containing its own independent Node tree. Authentication via better-auth library.
+_Avoid_: Member, account holder
 
 **Session**:
-A User's authenticated browser session. The User's Node tree persists across sessions.
+A User's authenticated browser session. The User's Chats persist across sessions.
 _Avoid_: Log in, log out
 
+**Chat**:
+A container for one Node tree. A User may have many Chats; each Chat has exactly one Root Node and all Nodes in that tree share the same Chat ID. Deleting a Chat cascades to all its Nodes and Messages. The Chat's title mirrors its Root Node's title (derived from the first 3–4 user messages).
+_Avoid_: Conversation, session, thread
+
 **Node**:
-A single linear exchange of messages between user and AI. A Node only stores its own messages — ancestor messages are assembled at query time via the materialized path. Each Node has an auto-generated title (derived from the first 3–4 user messages), a creation timestamp, and a materialized path. Forking creates a new child Node with an empty message list; the user is immediately switched to it.
-_Avoid_: Conversation, session, branch, thread
+A single linear exchange of messages between user and AI. A Node only stores its own messages — ancestor messages are assembled at query time via the materialized path. Each Node has an auto-generated title (derived from the first 3–4 user messages), a creation timestamp, a materialized path, and a `chatId` FK to its parent Chat. Forking creates a new child Node with an empty message list; the user is immediately switched to it.
+_Avoid_: Branch, thread
 
 **Ancestor chain**:
 The ordered list of parent Nodes from the root down to the current Node. A child Node inherits the full message history of every Node in its ancestor chain as context.
 _Avoid_: Parent list, upbringing
 
 **Sidebar**:
-An expandable panel on the left showing all of the User's conversations (roots of their trees). Only one root per User for this application.
+An expandable panel on the left showing all of the User's Chats. Clicking a Chat selects it and loads its tree. A "New Chat" button at the top creates a new Chat with a fresh Root Node.
 
 **Chat area**:
-The center panel displaying the currently active Node's conversation. This is where the user reads and sends messages.
+The center panel displaying the currently active Node's conversation. This is where the user reads and sends messages. If no Chat is selected, the area is empty with a placeholder prompt.
 
 **Tree panel**:
-A panel on the right side of the screen that renders the Node tree as an interactive graph. Users can click any Node to navigate to it — the Chat area then switches to that Node's conversation.
+A panel on the right side of the screen that renders the selected Chat's Node tree as an interactive graph. Users can click any Node to navigate to it — the Chat area then switches to that Node's conversation.
 _Avoid_: Roadmap, map
 
 **Mobile layout**:
@@ -42,7 +47,7 @@ The user can only edit their last message in a Node. The edit does not mutate th
 A string encoding the ancestry of a Node in the format `/<parent_id>/<child_id>`. Stored on each Node enables O(1) ancestor lookups without recursive queries. Ancestor messages are assembled by querying the messages of each ancestor node via this path at request time.
 
 **Root Node**:
-The initial Node of the tree. There is exactly one root Node per user/session. All other Nodes are descendants of this root.
+The initial Node of a Chat. There is exactly one root Node per Chat. All other Nodes in that Chat are descendants of this root. Deleting the Root Node deletes the entire Chat.
 
 **Append**:
 Adding a new message to the current Node. This is the default action — the main conversation thread continues linearly within the same Node.
@@ -51,5 +56,5 @@ Adding a new message to the current Node. This is the default action — the mai
 The action of creating a new child Node from a given Node, used when the user wants to pursue a tangential or side question outside the current flow. The new Node inherits the ancestor chain of its parent, plus the parent's own messages. Fork can be triggered via a "Branch Out" button or a slash command like `/branch`.
 
 **Delete Node**:
-Permanently removes a Node and all of its descendant Nodes. Deleting the Root Node removes the User's entire tree.
+Permanently removes a Node and all of its descendant Nodes. Deleting the Root Node of a Chat removes the entire Chat and all its contents.
 
