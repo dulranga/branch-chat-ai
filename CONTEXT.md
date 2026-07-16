@@ -1,0 +1,55 @@
+# Branching Chat
+
+An AI chat application where conversations form a tree structure. Each Node is a linear message exchange; forking creates a child Node that inherits its ancestor chain's context.
+
+## Language
+
+**User**:
+A person (typically a student) using the application. Each User has exactly one Root Node and owns all Nodes in their tree. Authentication via better-auth library.
+
+**Session**:
+A User's authenticated browser session. The User's Node tree persists across sessions.
+_Avoid_: Log in, log out
+
+**Node**:
+A single linear exchange of messages between user and AI. A Node only stores its own messages — ancestor messages are assembled at query time via the materialized path. Each Node has an auto-generated title (derived from the first 3–4 user messages), a creation timestamp, and a materialized path. Forking creates a new child Node with an empty message list; the user is immediately switched to it.
+_Avoid_: Conversation, session, branch, thread
+
+**Ancestor chain**:
+The ordered list of parent Nodes from the root down to the current Node. A child Node inherits the full message history of every Node in its ancestor chain as context.
+_Avoid_: Parent list, upbringing
+
+**Sidebar**:
+An expandable panel on the left showing all of the User's conversations (roots of their trees). Only one root per User for this application.
+
+**Chat area**:
+The center panel displaying the currently active Node's conversation. This is where the user reads and sends messages.
+
+**Tree panel**:
+A panel on the right side of the screen that renders the Node tree as an interactive graph. Users can click any Node to navigate to it — the Chat area then switches to that Node's conversation.
+_Avoid_: Roadmap, map
+
+**Mobile layout**:
+On mobile the three-panel layout collapses to two: the Sidebar remains, and the Chat area gains a top tab bar to toggle between "Chat" and "Tree" views in the same panel.
+
+**Message**:
+A single turn in the conversation within a Node. Messages are stored in a separate table with columns: `id` (uuid PK), `node_id` (FK → nodes), `role` (user/assistant/system), `content` (text), `order` (incrementing integer per Node), `reply_to` (uuid, nullable FK → messages — the user message that triggered this assistant response), and `created_at` (timestamptz). The Vercel AI SDK expects messages in order, so the `order` column determines position within a Node.
+
+**Edit** (message):
+The user can only edit their last message in a Node. The edit does not mutate the original — instead a new message is inserted with the same `order` value. When reconstructing the conversation, the most recent message for a given `order` wins. The original remains in the database for audit trace. Assistant responses use `reply_to` to track which user message triggered them.
+
+**Materialized path**:
+A string encoding the ancestry of a Node in the format `/<parent_id>/<child_id>`. Stored on each Node enables O(1) ancestor lookups without recursive queries. Ancestor messages are assembled by querying the messages of each ancestor node via this path at request time.
+
+**Root Node**:
+The initial Node of the tree. There is exactly one root Node per user/session. All other Nodes are descendants of this root.
+
+**Append**:
+Adding a new message to the current Node. This is the default action — the main conversation thread continues linearly within the same Node.
+
+**Fork**:
+The action of creating a new child Node from a given Node, used when the user wants to pursue a tangential or side question outside the current flow. The new Node inherits the ancestor chain of its parent, plus the parent's own messages. Fork can be triggered via a "Branch Out" button or a slash command like `/branch`.
+
+**Delete Node**:
+Permanently removes a Node and all of its descendant Nodes. Deleting the Root Node removes the User's entire tree.
+
