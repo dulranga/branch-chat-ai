@@ -132,7 +132,12 @@ export function ChatArea({
                 </div>
               ) : (
                 <>
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {msg.content ||
+                      (msg.id.startsWith("streaming-") && isStreaming
+                        ? "thinking..."
+                        : "")}
+                  </p>
                   <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {msg.role === "user" && msg.id === lastUserMsgId && (
                       <button

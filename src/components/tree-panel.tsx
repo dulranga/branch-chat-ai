@@ -11,7 +11,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import "@xyflow/react/dist/style.css";
 import type { Node } from "@/lib/types";
 
@@ -115,8 +115,13 @@ export function TreePanel({
       style: { stroke: "#64748b" },
     }));
 
-  const [fNodes, _setNodes, onNodesChange] = useNodesState(flowNodes);
-  const [fEdges, _setEdges, onEdgesChange] = useEdgesState(flowEdges);
+  const [fNodes, setNodes, onNodesChange] = useNodesState(flowNodes);
+  const [fEdges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
+
+  useEffect(() => {
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+  }, [flowNodes, flowEdges, setNodes, setEdges]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: FlowNode) => {

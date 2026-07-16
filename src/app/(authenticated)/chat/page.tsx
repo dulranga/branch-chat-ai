@@ -12,6 +12,7 @@ import {
   getAncestorMessages,
   getChatRootNode,
   getChatTree,
+  getNode,
   getNodeMessages,
   getUserChats,
   mergeNode,
@@ -93,15 +94,27 @@ export default function ChatPage() {
   async function handleSendMessage(content: string) {
     if (!currentNode) return;
 
+    const userMsgId = `temp-${Date.now()}`;
+    const assistantMsgId = `streaming-${Date.now()}`;
+
     setMessages((prev) => [
       ...prev,
       {
-        id: `temp-${Date.now()}`,
+        id: userMsgId,
         nodeId: currentNode.id,
         role: "user",
         content,
         order: prev.length,
         replyTo: null,
+        createdAt: new Date(),
+      },
+      {
+        id: assistantMsgId,
+        nodeId: currentNode.id,
+        role: "assistant",
+        content: "",
+        order: prev.length + 1,
+        replyTo: userMsgId,
         createdAt: new Date(),
       },
     ]);
@@ -113,9 +126,33 @@ export default function ChatPage() {
     });
 
     if (res.ok && selectedChat) {
+      const reader = res.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        let accumulated = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            accumulated += decoder.decode(value, { stream: true });
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId ? { ...m, content: accumulated } : m,
+              ),
+            );
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      const updatedNode = await getNode(currentNode.id);
+      if (updatedNode) setCurrentNode(updatedNode as unknown as Node);
       await loadOwnMessages(currentNode.id);
       const tree = await getChatTree(selectedChat.id);
       setTreeNodes(tree as unknown as Node[]);
+      const userChats = await getUserChats();
+      setChats(userChats as unknown as Chat[]);
     }
   }
 
@@ -125,6 +162,7 @@ export default function ChatPage() {
     const child = await forkNode(currentNode.id);
     setCurrentNode(child as unknown as Node);
     setMessages([]);
+    await loadFullMessages(child.id);
     if (selectedChat) {
       const tree = await getChatTree(selectedChat.id);
       setTreeNodes(tree as unknown as Node[]);

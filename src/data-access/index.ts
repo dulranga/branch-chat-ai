@@ -153,14 +153,6 @@ export async function appendMessage(
     replyTo: replyTo ?? null,
   });
 
-  if (role === "user") {
-    const msgs = await getNodeMessages(nodeId);
-    const userMsgs = msgs.filter((m) => m.role === "user");
-    if (userMsgs.length === 3 || userMsgs.length === 4) {
-      generateTitle(nodeId);
-    }
-  }
-
   return { id, order, content, role, nodeId };
 }
 
