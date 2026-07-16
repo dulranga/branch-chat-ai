@@ -1,35 +1,30 @@
 "use client";
 
-import { Pencil, GitBranch, RotateCcw, Send } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useSession } from "@/lib/auth-client";
 import type { Message as MessageType, Node } from "@/lib/types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Bubble,
-  BubbleContent,
-} from "@/components/ui/bubble";
-import { Button } from "@/components/ui/button";
-import { MarkdownContent } from "@/components/markdown-content";
-import {
-  Marker,
-  MarkerContent,
-  MarkerIcon,
-} from "@/components/ui/marker";
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
 import {
   Message,
-  MessageAvatar,
-  MessageContent as MessageContentContainer,
-  MessageFooter,
-} from "@/components/ui/message";
+  MessageActions,
+  MessageAction,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
 import {
-  MessageScroller,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "@/components/ui/message-scroller";
+  PromptInput,
+  type PromptInputMessage,
+  PromptInputTextarea,
+  PromptInputSubmit,
+} from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Pencil, GitBranch, RotateCcw } from "lucide-react";
 
 interface ChatAreaProps {
   node: Node | null;
@@ -46,21 +41,11 @@ export function ChatArea({
   onFork,
   onEditMessage,
 }: ChatAreaProps) {
-  const [input, setInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: session } = useSession();
-
-  function autoResize() {
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight}px`;
-    }
-  }
 
   if (!session) {
     return (
@@ -78,18 +63,14 @@ export function ChatArea({
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || isStreaming) return;
-
-    const trimmed = input.trim();
+  async function handleSubmit(message: PromptInputMessage) {
+    const trimmed = message.text.trim();
 
     if (trimmed === "/branch") {
       onFork("");
       return;
     }
 
-    setInput("");
     setIsStreaming(true);
     setHasError(false);
     try {
@@ -98,13 +79,6 @@ export function ChatArea({
       setHasError(true);
     } finally {
       setIsStreaming(false);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
     }
   }
 
@@ -123,203 +97,147 @@ export function ChatArea({
   const lastUserMsgId =
     msgs.filter((m) => m.role === "user").at(-1)?.id ?? null;
 
+  const chatStatus = isStreaming ? "streaming" : hasError ? "error" : "ready";
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden min-w-0">
       {node.title && (
         <div className="shrink-0 border-b border-border px-6 pb-2 pt-4">
           <h2 className="text-lg font-semibold">{node.title}</h2>
         </div>
       )}
 
-      <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
-        <MessageScroller>
-          <MessageScrollerViewport>
-            <MessageScrollerContent>
-              {msgs.length === 0 && (
-                <p className="py-8 text-center text-muted-foreground">
-                  Start a conversation by sending a message below.
-                </p>
-              )}
+      <Conversation className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto max-h-[90vh]">
+        <ConversationContent>
+          {msgs.length === 0 && (
+            <ConversationEmptyState
+              title="Start a conversation"
+              description="Start a conversation by sending a message below."
+            />
+          )}
 
-              {msgs.map((msg) => (
-                <MessageScrollerItem
-                  key={msg.id}
-                  messageId={msg.id}
-                  scrollAnchor={msg.role === "user"}
-                >
-                  {msg.role === "system" ? (
-                    <Marker>
-                      <MarkerContent className="text-xs italic opacity-70">
-                        {msg.content}
-                      </MarkerContent>
-                    </Marker>
-                  ) : (
-                    <Message
-                      align={msg.role === "user" ? "end" : "start"}
-                    >
-                      {msg.role === "assistant" && (
-                        <MessageAvatar>
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              AI
-                            </AvatarFallback>
-                          </Avatar>
-                        </MessageAvatar>
+          {msgs.map((msg) => (
+            <Message from={msg.role} key={msg.id}>
+              {msg.role === "system" ? (
+                <MessageContent>
+                  <p className="text-xs italic opacity-70">{msg.content}</p>
+                </MessageContent>
+              ) : (
+                <>
+                  <MessageContent>
+                    {editingId === msg.id ? (
+                      <div className="min-w-[300px] space-y-2">
+                        <Textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          rows={3}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingId(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={() => saveEdit(msg.id)}>
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : msg.role === "user" ? (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    ) : msg.content ? (
+                      <MessageResponse>{msg.content}</MessageResponse>
+                    ) : msg.id.startsWith("streaming-") && isStreaming ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span
+                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50"
+                          style={{ animationDelay: "0ms" }}
+                        />
+                        <span
+                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50"
+                          style={{ animationDelay: "150ms" }}
+                        />
+                        <span
+                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50"
+                          style={{ animationDelay: "300ms" }}
+                        />
+                      </span>
+                    ) : null}
+                  </MessageContent>
+                  {editingId !== msg.id && (
+                    <MessageActions>
+                      {msg.role === "user" && msg.id === lastUserMsgId && (
+                        <MessageAction
+                          onClick={() => startEdit(msg)}
+                          label="Edit message"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </MessageAction>
                       )}
-                      <MessageContentContainer>
-                        {editingId === msg.id ? (
-                          <div className="min-w-[300px] space-y-2">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              rows={3}
-                            />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingId(null)}
-                              >
-                                Cancel
-                              </Button>
-                              <Button size="sm" onClick={() => saveEdit(msg.id)}>
-                                Save
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <Bubble
-                              variant={
-                                msg.role === "user"
-                                  ? "default"
-                                  : "ghost"
-                              }
-                              align={
-                                msg.role === "user" ? "end" : "start"
-                              }
-                            >
-                              <BubbleContent>
-                                {msg.role === "user" ? (
-                                  <p className="whitespace-pre-wrap">
-                                    {msg.content}
-                                  </p>
-                                ) : msg.content ? (
-                                  <MarkdownContent content={msg.content} />
-                                ) : msg.id.startsWith("streaming-") && isStreaming ? (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50" style={{ animationDelay: "0ms" }} />
-                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50" style={{ animationDelay: "150ms" }} />
-                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50" style={{ animationDelay: "300ms" }} />
-                                  </span>
-                                ) : null}
-                              </BubbleContent>
-                            </Bubble>
-                            <MessageFooter>
-                              {msg.role === "user" && msg.id === lastUserMsgId && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-1.5"
-                                  onClick={() => startEdit(msg)}
-                                  aria-label="Edit message"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-1.5"
-                                onClick={() => onFork(msg.id)}
-                                aria-label="Branch out from this message"
-                              >
-                                <GitBranch className="h-3 w-3" />
-                              </Button>
-                            </MessageFooter>
-                          </>
-                        )}
-                      </MessageContentContainer>
-                    </Message>
+                      <MessageAction
+                        onClick={() => onFork(msg.id)}
+                        label="Branch out from this message"
+                      >
+                        <GitBranch className="h-3 w-3" />
+                      </MessageAction>
+                    </MessageActions>
                   )}
-                </MessageScrollerItem>
-              ))}
-
-              {isStreaming && msgs.filter(m => m.role === "assistant" && !m.content).length === 0 && (
-                <MessageScrollerItem>
-                  <Marker role="status">
-                    <MarkerIcon>
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/50" />
-                    </MarkerIcon>
-                    <MarkerContent>Thinking...</MarkerContent>
-                  </Marker>
-                </MessageScrollerItem>
+                </>
               )}
+            </Message>
+          ))}
 
-              {hasError && (
-                <MessageScrollerItem>
-                  <Message align="start">
-                    <MessageContentContainer className="max-w-full items-center">
-                      <Bubble variant="destructive" align="start" className="max-w-full">
-                        <BubbleContent>
-                          <div className="flex items-center gap-2">
-                            <span>Failed to send message</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setHasError(false);
-                                const lastUserMsg = [...msgs]
-                                  .reverse()
-                                  .find((m) => m.role === "user");
-                                if (lastUserMsg) {
-                                  onSendMessage(lastUserMsg.content);
-                                }
-                              }}
-                            >
-                              <RotateCcw className="mr-1 h-3 w-3" />
-                              Retry
-                            </Button>
-                          </div>
-                        </BubbleContent>
-                      </Bubble>
-                    </MessageContentContainer>
-                  </Message>
-                </MessageScrollerItem>
-              )}
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-        </MessageScroller>
-      </MessageScrollerProvider>
+          {isStreaming &&
+            msgs.filter((m) => m.role === "assistant" && !m.content).length ===
+              0 && (
+              <Message from="assistant">
+                <MessageContent>
+                  <p className="text-sm text-muted-foreground">Thinking...</p>
+                </MessageContent>
+              </Message>
+            )}
 
-      <form
+          {hasError && (
+            <Message from="assistant">
+              <MessageContent>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Failed to send message</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setHasError(false);
+                      const lastUserMsg = [...msgs]
+                        .reverse()
+                        .find((m) => m.role === "user");
+                      if (lastUserMsg) {
+                        onSendMessage(lastUserMsg.content);
+                      }
+                    }}
+                  >
+                    <RotateCcw className="mr-1 h-3 w-3" />
+                    Retry
+                  </Button>
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <PromptInput
         onSubmit={handleSubmit}
         className="shrink-0 border-t border-border p-4"
       >
-        <div className="mx-auto flex max-w-3xl gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              autoResize();
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (/branch to fork)"
-            disabled={isStreaming}
-            rows={1}
-            className="min-h-[40px] max-h-[200px] resize-none"
-          />
-          <Button
-            type="submit"
-            disabled={!input.trim() || isStreaming}
-            className="self-end"
-          >
-            <Send className="mr-1 h-4 w-4" />
-            Send
-          </Button>
-        </div>
-      </form>
+        <PromptInputTextarea
+          placeholder="Type a message... (/branch to fork)"
+          disabled={isStreaming}
+        />
+        <PromptInputSubmit status={chatStatus} disabled={isStreaming} />
+      </PromptInput>
     </div>
   );
 }

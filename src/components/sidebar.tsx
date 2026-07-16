@@ -132,10 +132,7 @@ function ChatListItem({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <span
-              className="truncate flex-1"
-              onDoubleClick={handleDoubleClick}
-            >
+            <span className="truncate flex-1" onDoubleClick={handleDoubleClick}>
               {chat.title || "Untitled Chat"}
             </span>
           )}
@@ -159,7 +156,9 @@ function ChatListItem({
           <DialogHeader>
             <DialogTitle>Delete Chat</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &ldquo;{chat.title || "Untitled Chat"}&rdquo;? This action cannot be undone.
+              Are you sure you want to delete &ldquo;
+              {chat.title || "Untitled Chat"}&rdquo;? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -201,8 +200,7 @@ export function Sidebar({
     const q = searchQuery.toLowerCase();
     return chats.filter(
       (c) =>
-        c.title?.toLowerCase().includes(q) ||
-        c.id.toLowerCase().includes(q),
+        c.title?.toLowerCase().includes(q) || c.id.toLowerCase().includes(q),
     );
   }, [chats, searchQuery]);
 
@@ -212,11 +210,16 @@ export function Sidebar({
   );
 
   return (
-    <ShadcnSidebar collapsible="offcanvas">
+    <ShadcnSidebar collapsible="none">
       <SidebarHeader>
         <div className="flex items-center justify-between p-1">
           <span className="text-sm font-semibold">Chats</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onCreateChat}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onCreateChat}
+          >
             <svg
               width="16"
               height="16"
@@ -242,7 +245,9 @@ export function Sidebar({
         <ScrollArea className="flex-1">
           {groups.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {searchQuery ? "No chats match your search" : "No chats yet. Start a new one!"}
+              {searchQuery
+                ? "No chats match your search"
+                : "No chats yet. Start a new one!"}
             </div>
           ) : (
             groups.map((group) => (

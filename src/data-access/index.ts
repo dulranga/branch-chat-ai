@@ -1,12 +1,7 @@
 "use server";
 
-import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
-
-const ollama = createOpenAI({
-  baseURL: "http://localhost:11434/v1",
-  apiKey: "ollama",
-});
+import { getModel } from "@/lib/llm";
 
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -302,7 +297,7 @@ export async function mergeNode(childNodeId: string) {
     .join("\n");
 
   const { text: summary } = await generateText({
-    model: ollama.chat("gemma4:12b"),
+    model: getModel(),
     messages: [
       {
         role: "system",
@@ -361,7 +356,7 @@ export async function generateTitle(nodeId: string) {
     .join("\n");
 
   const { text: title } = await generateText({
-    model: ollama.chat("gemma4:12b"),
+    model: getModel(),
     messages: [
       {
         role: "system",
