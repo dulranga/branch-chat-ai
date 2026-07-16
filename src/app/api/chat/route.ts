@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { headers } from "next/headers";
 import {
@@ -8,6 +8,11 @@ import {
   getNodeMessages,
 } from "@/data-access";
 import { auth } from "@/lib/auth";
+
+const ollama = createOpenAI({
+  baseURL: "http://localhost:11434/v1",
+  apiKey: "ollama",
+});
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({
@@ -49,7 +54,7 @@ export async function POST(req: Request) {
   ];
 
   const result = streamText({
-    model: openai("gpt-4o-mini"),
+    model: ollama.chat("gemma4:12b"),
     messages: aiMessages,
     async onFinish({ text }) {
       await appendMessage(nodeId, text, "assistant", userMsg.id);

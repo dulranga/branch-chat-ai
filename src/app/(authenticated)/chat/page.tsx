@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChatArea } from "@/components/chat-area";
 import { Sidebar } from "@/components/sidebar";
 import { MobileTabBar, TreePanel } from "@/components/tree-panel";
@@ -9,6 +9,7 @@ import {
   deleteNode,
   editLastMessage,
   forkNode,
+  getAncestorMessages,
   getNodeMessages,
   getSubtree,
   getUserRootNode,
@@ -19,7 +20,6 @@ import type { Message, Node } from "@/lib/types";
 
 export default function ChatPage() {
   const { data: session, isPending } = useSession();
-  const [, startTransition] = useTransition();
   const [rootNode, setRootNode] = useState<Node | null>(null);
   const [currentNode, setCurrentNode] = useState<Node | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,22 +28,20 @@ export default function ChatPage() {
   const [mobileTab, setMobileTab] = useState<"chat" | "tree">("chat");
   const [loading, setLoading] = useState(true);
 
-  const loadMessages = useCallback(async (nodeId: string) => {
+  /** Load messages for a node, including ancestor context. */
+  const loadFullMessages = useCallback(async (nodeId: string) => {
+    const [nodeMsgs, ancestorMsgs] = await Promise.all([
+      getNodeMessages(nodeId),
+      getAncestorMessages(nodeId),
+    ]);
+    setMessages([...ancestorMsgs, ...nodeMsgs] as unknown as Message[]);
+  }, []);
+
+  /** Load only the current node's own messages (after AI response / edit). */
+  const loadOwnMessages = useCallback(async (nodeId: string) => {
     const msgs = await getNodeMessages(nodeId);
     setMessages(msgs as unknown as Message[]);
   }, []);
-
-  const loadSubtree = useCallback(async (nodeId: string) => {
-    const nodes = await getSubtree(nodeId);
-    setTreeNodes(nodes as unknown as Node[]);
-  }, []);
-
-  const loadTree = useCallback(
-    async (nodeId: string) => {
-      await Promise.all([loadMessages(nodeId), loadSubtree(nodeId)]);
-    },
-    [loadMessages, loadSubtree],
-  );
 
   useEffect(() => {
     if (isPending) return;
@@ -57,12 +55,16 @@ export default function ChatPage() {
       setRootNode(root as unknown as Node | null);
       if (root) {
         setCurrentNode(root as unknown as Node);
-        await loadTree(root.id);
+        setMessages([]);
+        setTreeNodes([root as unknown as Node]);
+        await loadFullMessages(root.id);
+        const subtree = await getSubtree(root.id);
+        setTreeNodes(subtree as unknown as Node[]);
       }
       setLoading(false);
     }
     init();
-  }, [session, isPending, loadTree]);
+  }, [session, isPending, loadFullMessages]);
 
   async function handleNewChat() {
     const root = await createRootNode();
@@ -95,27 +97,31 @@ export default function ChatPage() {
     });
 
     if (res.ok) {
-      await loadMessages(currentNode.id);
-      await loadSubtree(currentNode.id);
+      await loadOwnMessages(currentNode.id);
+      if (rootNode) {
+        const subtree = await getSubtree(rootNode.id);
+        setTreeNodes(subtree as unknown as Node[]);
+      }
     }
   }
 
   async function handleFork(_messageId: string) {
     if (!currentNode) return;
 
-    startTransition(async () => {
-      const child = await forkNode(currentNode.id);
-      setCurrentNode(child as unknown as Node);
-      setMessages([]);
-      await loadSubtree(child.id);
-    });
+    const child = await forkNode(currentNode.id);
+    setCurrentNode(child as unknown as Node);
+    setMessages([]);
+    if (rootNode) {
+      const subtree = await getSubtree(rootNode.id);
+      setTreeNodes(subtree as unknown as Node[]);
+    }
   }
 
   async function handleEditMessage(_messageId: string, newContent: string) {
     if (!currentNode) return;
 
     await editLastMessage(currentNode.id, newContent);
-    await loadMessages(currentNode.id);
+    await loadFullMessages(currentNode.id);
   }
 
   async function handleDeleteNode(nodeId: string) {
@@ -127,20 +133,33 @@ export default function ChatPage() {
       setMessages([]);
       setTreeNodes([]);
     } else if (nodeId === currentNode?.id) {
-      if (rootNode) await handleSelectNode(rootNode);
+      if (rootNode) {
+        setCurrentNode(rootNode as unknown as Node);
+        await loadFullMessages(rootNode.id);
+        const subtree = await getSubtree(rootNode.id);
+        setTreeNodes(subtree as unknown as Node[]);
+      }
     } else {
-      if (currentNode) await loadTree(currentNode.id);
+      const subtree = await getSubtree(rootNode?.id || nodeId);
+      setTreeNodes(subtree as unknown as Node[]);
     }
   }
 
   async function handleMergeNode(nodeId: string) {
     await mergeNode(nodeId);
-    if (currentNode) await loadTree(currentNode.id);
+    if (rootNode) {
+      const subtree = await getSubtree(rootNode.id);
+      setTreeNodes(subtree as unknown as Node[]);
+    }
   }
 
   async function handleSelectNode(node: Node) {
     setCurrentNode(node);
-    await loadTree(node.id);
+    await loadFullMessages(node.id);
+    if (rootNode) {
+      const subtree = await getSubtree(rootNode.id);
+      setTreeNodes(subtree as unknown as Node[]);
+    }
   }
 
   if (isPending) {

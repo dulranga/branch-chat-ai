@@ -11,7 +11,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import "@xyflow/react/dist/style.css";
 import type { Node } from "@/lib/types";
 
@@ -24,6 +24,50 @@ interface TreePanelProps {
   isMobileTree?: boolean;
 }
 
+/** Positions nodes in a tree shape using DFS layout. */
+function layoutTree(nodes: Node[]) {
+  const childrenMap = new Map<string | null, Node[]>();
+  for (const node of nodes) {
+    const parentKey = node.parentId;
+    if (!childrenMap.has(parentKey)) childrenMap.set(parentKey, []);
+    const siblings = childrenMap.get(parentKey);
+    if (siblings) siblings.push(node);
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+
+  function layoutSubtree(
+    parentId: string | null,
+    level: number,
+    startX: number,
+  ): number {
+    const children = childrenMap.get(parentId) || [];
+    if (children.length === 0) return startX + 160;
+
+    let cursor = startX;
+    for (const child of children) {
+      const subtreeEnd = layoutSubtree(child.id, level + 1, cursor);
+      const cx = (cursor + subtreeEnd) / 2;
+      positions.set(child.id, { x: cx, y: level * 100 + 50 });
+      cursor = subtreeEnd + 60;
+    }
+
+    const parentSpan = cursor - startX;
+    const parentX = startX + parentSpan / 2;
+    if (parentId) {
+      positions.set(parentId, {
+        x: parentX,
+        y: (level - 1) * 100 + 50,
+      });
+    }
+
+    return cursor;
+  }
+
+  layoutSubtree(null, 1, 0);
+  return positions;
+}
+
 export function TreePanel({
   nodes: treeNodes,
   currentNode,
@@ -32,27 +76,32 @@ export function TreePanel({
   onMergeNode,
   isMobileTree,
 }: TreePanelProps) {
-  const flowNodes: FlowNode[] = treeNodes.map((n, i) => ({
-    id: n.id,
-    type: "default",
-    position: { x: 0, y: i * 100 },
-    data: {
-      label: n.title || "Untitled",
-      isActive: currentNode?.id === n.id,
-      hasChildren: treeNodes.some((c) => c.parentId === n.id),
-      isRoot: !n.parentId,
-      node: n,
-    },
-    style: {
-      background: currentNode?.id === n.id ? "#3b82f6" : "#1e293b",
-      color: "#fff",
-      border:
-        currentNode?.id === n.id ? "2px solid #93c5fd" : "1px solid #334155",
-      borderRadius: "8px",
-      padding: "8px 16px",
-      cursor: "pointer",
-    },
-  }));
+  const nodePositions = useMemo(() => layoutTree(treeNodes), [treeNodes]);
+
+  const flowNodes: FlowNode[] = treeNodes.map((n) => {
+    const pos = nodePositions.get(n.id) || { x: 0, y: 0 };
+    return {
+      id: n.id,
+      type: "default",
+      position: pos,
+      data: {
+        label: n.title || "Untitled",
+        isActive: currentNode?.id === n.id,
+        hasChildren: treeNodes.some((c) => c.parentId === n.id),
+        isRoot: !n.parentId,
+        node: n,
+      },
+      style: {
+        background: currentNode?.id === n.id ? "#3b82f6" : "#1e293b",
+        color: "#fff",
+        border:
+          currentNode?.id === n.id ? "2px solid #93c5fd" : "1px solid #334155",
+        borderRadius: "8px",
+        padding: "8px 16px",
+        cursor: "pointer",
+      },
+    };
+  });
 
   const flowEdges: Edge[] = treeNodes
     .filter((n): n is Node & { parentId: string } => !!n.parentId)
