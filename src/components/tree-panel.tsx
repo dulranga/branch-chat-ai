@@ -89,9 +89,9 @@ export function TreePanel({
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: "hsl(var(--muted-foreground))",
+        color: "var(--muted-foreground)",
       },
-      style: { stroke: "hsl(var(--muted-foreground))", opacity: 0.6 },
+      style: { stroke: "var(--muted-foreground)", opacity: 0.6 },
     }));
 
   const [fNodes, setNodes, onNodesChange] = useNodesState(flowNodes);
@@ -150,19 +150,19 @@ export function TreePanel({
           <Controls />
           <MiniMap
             style={{
-              background: "hsl(var(--background))",
-              border: "1px solid hsl(var(--border))",
+              background: "var(--background)",
+              border: "1px solid var(--border)",
               borderRadius: "var(--radius)",
             }}
             nodeColor={(node) =>
               node.data?.isActive
-                ? "hsl(var(--primary))"
-                : "hsl(var(--muted))"
+                ? "var(--primary)"
+                : "var(--muted)"
             }
-            maskColor="hsl(var(--background)/0.8)"
+            maskColor="color-mix(in oklab, var(--background) 80%, transparent)"
           />
           <Background
-            color="hsl(var(--border))"
+            color="var(--border)"
             gap={16}
             size={1}
           />

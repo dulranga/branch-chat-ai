@@ -29,14 +29,14 @@ export function TreeNode({ data }: NodeProps) {
           <div
             style={{
               background: d.isActive
-                ? "hsl(var(--primary))"
-                : "hsl(var(--card))",
+                ? "var(--primary)"
+                : "var(--card)",
               color: d.isActive
-                ? "hsl(var(--primary-foreground))"
-                : "hsl(var(--card-foreground))",
+                ? "var(--primary-foreground)"
+                : "var(--card-foreground)",
               border: d.isActive
-                ? "2px solid hsl(var(--ring))"
-                : "1px solid hsl(var(--border))",
+                ? "2px solid var(--ring)"
+                : "1px solid var(--border)",
               borderRadius: "var(--radius)",
               padding: "8px 16px",
               boxShadow: d.isActive
