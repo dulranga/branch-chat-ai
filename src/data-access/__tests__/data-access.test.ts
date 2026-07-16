@@ -12,6 +12,7 @@ describe("Data Access Layer – smoke", () => {
       "getUserChats",
       "getChat",
       "getChatTree",
+      "getChatMessages",
       "getChatRootNode",
       "deleteChat",
       "getAncestorMessages",

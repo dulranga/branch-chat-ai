@@ -68,6 +68,28 @@ export async function getChatTree(chatId: string) {
   return db.select().from(nodes).where(eq(nodes.chatId, chatId));
 }
 
+export async function getChatMessages(chatId: string, nodeId?: string) {
+  const session = await requireAuth();
+  const chat = await getChat(chatId);
+  if (!chat || chat.userId !== session.user.id) return [];
+
+  if (nodeId) {
+    const [nodeMsgs, ancestorMsgs] = await Promise.all([
+      getNodeMessages(nodeId),
+      getAncestorMessages(nodeId),
+    ]);
+    return [...ancestorMsgs, ...nodeMsgs];
+  }
+
+  const root = await getChatRootNode(chatId);
+  if (!root) return [];
+  const [nodeMsgs, ancestorMsgs] = await Promise.all([
+    getNodeMessages(root.id),
+    getAncestorMessages(root.id),
+  ]);
+  return [...ancestorMsgs, ...nodeMsgs];
+}
+
 export async function getChatRootNode(chatId: string) {
   await requireAuth();
   const result = await db
@@ -360,11 +382,9 @@ export async function generateTitle(nodeId: string) {
 
   const cleanTitle = title.trim().slice(0, 80);
   await db.update(nodes).set({ title: cleanTitle }).where(eq(nodes.id, nodeId));
-  if (node.chatId) {
-    await db
-      .update(chats)
-      .set({ title: cleanTitle })
-      .where(eq(chats.id, node.chatId));
-  }
+  await db
+    .update(chats)
+    .set({ title: cleanTitle })
+    .where(eq(chats.id, node.chatId));
   return cleanTitle;
 }
