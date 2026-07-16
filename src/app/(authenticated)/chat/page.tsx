@@ -3,13 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatArea } from "@/components/chat-area";
 import { Sidebar } from "@/components/sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { MobileTabBar, TreePanel } from "@/components/tree-panel";
+import { TreePanel } from "@/components/tree-panel";
 import {
   createChat,
   deleteChat,
@@ -279,8 +287,23 @@ export default function ChatPage() {
         />
 
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile: sidebar trigger + tab bar */}
+          <div className="flex items-center border-b border-border md:hidden shrink-0">
+            <SidebarTrigger className="h-10 w-10 shrink-0" />
+            <Tabs
+              value={mobileTab}
+              onValueChange={(v) => setMobileTab(v as "chat" | "tree")}
+              className="flex-1"
+            >
+              <TabsList className="w-full rounded-none border-b-0">
+                <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
+                <TabsTrigger value="tree" className="flex-1">Tree</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           {/* Desktop: resizable panels */}
-          <div className="hidden md:flex flex-1">
+          <div className="hidden md:flex flex-1 min-h-0">
             <ResizablePanelGroup direction="horizontal" className="flex-1">
               <ResizablePanel defaultSize={70} minSize={40}>
                 <ChatArea
@@ -294,7 +317,7 @@ export default function ChatPage() {
 
               <ResizableHandle withHandle />
 
-              <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+              <ResizablePanel defaultSize={30} minSize={20}>
                 <div className="h-full relative">
                   {treeNodes.length > 0 ? (
                     <TreePanel
@@ -314,9 +337,8 @@ export default function ChatPage() {
             </ResizablePanelGroup>
           </div>
 
-          {/* Mobile: tab bar + conditional panels */}
+          {/* Mobile: conditional panels */}
           <div className="flex flex-col flex-1 md:hidden">
-            <MobileTabBar activeTab={mobileTab} onTabChange={setMobileTab} />
             {mobileTab === "chat" && (
               <ChatArea
                 node={currentNode}

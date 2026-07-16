@@ -58,3 +58,7 @@ The action of creating a new child Node from a given Node, used when the user wa
 **Delete Node**:
 Permanently removes a Node and all of its descendant Nodes. Deleting the Root Node of a Chat removes the entire Chat and all its contents.
 
+## Coding Standards
+
+**Never use custom components if they are provided by shadcn/ui.** Always prefer the shadcn component for common UI patterns (buttons, inputs, cards, dialogs, tabs, textareas, tooltips, etc.). Custom DOM or styling should only be used for truly unique behaviors that shadcn does not cover.
+
