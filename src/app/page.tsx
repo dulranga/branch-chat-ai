@@ -12,26 +12,28 @@ export default async function Home() {
   }
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-center py-32 px-16">
-        <h1 className="text-4xl font-bold mb-4">Branching Chat</h1>
-        <p className="text-lg text-zinc-500 mb-8 text-center max-w-md">
-          Tree-structured AI conversations for learning. Branch off into side
-          questions without losing your main thread.
-        </p>
-        <div className="flex gap-4">
-          <a
-            href="/sign-in"
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
-          >
-            Sign In
-          </a>
-          <a
-            href="/sign-up"
-            className="px-6 py-3 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 font-medium"
-          >
-            Sign Up
-          </a>
+    <div className="flex flex-1 items-center justify-center bg-background">
+      <main className="flex w-full max-w-3xl flex-col items-center justify-center py-32 px-16">
+        <div className="rounded-xl border bg-card text-card-foreground shadow p-12 text-center space-y-6 max-w-md">
+          <h1 className="text-4xl font-bold tracking-tight">Branching Chat</h1>
+          <p className="text-lg text-muted-foreground">
+            Tree-structured AI conversations for learning. Branch off into side
+            questions without losing your main thread.
+          </p>
+          <div className="flex gap-4 justify-center pt-2">
+            <a
+              href="/sign-in"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-8"
+            >
+              Sign In
+            </a>
+            <a
+              href="/sign-up"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-10 px-8"
+            >
+              Sign Up
+            </a>
+          </div>
         </div>
       </main>
     </div>

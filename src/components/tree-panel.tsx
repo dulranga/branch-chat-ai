@@ -11,9 +11,26 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import type { Node } from "@/lib/types";
+import { layoutTree } from "@/lib/tree-layout";
+import { TreeNode } from "@/components/tree-node";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TreePanelProps {
   nodes: Node[];
@@ -24,50 +41,6 @@ interface TreePanelProps {
   isMobileTree?: boolean;
 }
 
-/** Positions nodes in a tree shape using DFS layout. */
-function layoutTree(nodes: Node[]) {
-  const childrenMap = new Map<string | null, Node[]>();
-  for (const node of nodes) {
-    const parentKey = node.parentId;
-    if (!childrenMap.has(parentKey)) childrenMap.set(parentKey, []);
-    const siblings = childrenMap.get(parentKey);
-    if (siblings) siblings.push(node);
-  }
-
-  const positions = new Map<string, { x: number; y: number }>();
-
-  function layoutSubtree(
-    parentId: string | null,
-    level: number,
-    startX: number,
-  ): number {
-    const children = childrenMap.get(parentId) || [];
-    if (children.length === 0) return startX + 160;
-
-    let cursor = startX;
-    for (const child of children) {
-      const subtreeEnd = layoutSubtree(child.id, level + 1, cursor);
-      const cx = (cursor + subtreeEnd) / 2;
-      positions.set(child.id, { x: cx, y: level * 100 + 50 });
-      cursor = subtreeEnd + 60;
-    }
-
-    const parentSpan = cursor - startX;
-    const parentX = startX + parentSpan / 2;
-    if (parentId) {
-      positions.set(parentId, {
-        x: parentX,
-        y: (level - 1) * 100 + 50,
-      });
-    }
-
-    return cursor;
-  }
-
-  layoutSubtree(null, 1, 0);
-  return positions;
-}
-
 export function TreePanel({
   nodes: treeNodes,
   currentNode,
@@ -76,29 +49,32 @@ export function TreePanel({
   onMergeNode,
   isMobileTree,
 }: TreePanelProps) {
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
+
+  const handleDeleteClick = useCallback((node: Node) => {
+    setNodeToDelete(node);
+    setDeleteDialogOpen(true);
+  }, []);
+
   const nodePositions = useMemo(() => layoutTree(treeNodes), [treeNodes]);
 
   const flowNodes: FlowNode[] = treeNodes.map((n) => {
     const pos = nodePositions.get(n.id) || { x: 0, y: 0 };
+    const isActive = currentNode?.id === n.id;
     return {
       id: n.id,
-      type: "default",
+      type: "treeNode",
       position: pos,
       data: {
         label: n.title || "Untitled",
-        isActive: currentNode?.id === n.id,
+        isActive,
         hasChildren: treeNodes.some((c) => c.parentId === n.id),
         isRoot: !n.parentId,
         node: n,
-      },
-      style: {
-        background: currentNode?.id === n.id ? "#3b82f6" : "#1e293b",
-        color: "#fff",
-        border:
-          currentNode?.id === n.id ? "2px solid #93c5fd" : "1px solid #334155",
-        borderRadius: "8px",
-        padding: "8px 16px",
-        cursor: "pointer",
+        onDelete: handleDeleteClick,
+        onMerge: onMergeNode,
       },
     };
   });
@@ -111,8 +87,11 @@ export function TreePanel({
       target: n.id,
       type: "smoothstep",
       animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed, color: "#64748b" },
-      style: { stroke: "#64748b" },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: "hsl(var(--muted-foreground))",
+      },
+      style: { stroke: "hsl(var(--muted-foreground))", opacity: 0.6 },
     }));
 
   const [fNodes, setNodes, onNodesChange] = useNodesState(flowNodes);
@@ -123,76 +102,132 @@ export function TreePanel({
     setEdges(flowEdges);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
 
+  const nodeTypes = useMemo(
+    () => ({ treeNode: TreeNode }),
+    [],
+  );
+
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: FlowNode) => {
-      const treeNode = treeNodes.find((n) => n.id === node.id);
-      if (treeNode) onSelectNode(treeNode);
+    (_: React.MouseEvent, flowNode: FlowNode) => {
+      const treeNode = treeNodes.find((n) => n.id === flowNode.id);
+      if (treeNode) {
+        onSelectNode(treeNode);
+        setSelectedNodeId(treeNode.id);
+      }
     },
     [treeNodes, onSelectNode],
   );
 
-  const onNodeContextMenu = useCallback(
-    (event: React.MouseEvent, node: FlowNode) => {
-      event.preventDefault();
-      const treeNode = treeNodes.find((n) => n.id === node.id);
-      if (!treeNode || !treeNode.parentId) return;
+  const confirmDelete = useCallback(() => {
+    if (nodeToDelete) {
+      onDeleteNode(nodeToDelete.id);
+      setDeleteDialogOpen(false);
+      setNodeToDelete(null);
+      setSelectedNodeId(null);
+    }
+  }, [nodeToDelete, onDeleteNode]);
 
-      const action = window.confirm(
-        `Delete "${treeNode.title || "Untitled"}" and all its children?`,
-      );
-      if (action) onDeleteNode(treeNode.id);
-    },
-    [treeNodes, onDeleteNode],
+  const selectedNode = useMemo(
+    () => treeNodes.find((n) => n.id === selectedNodeId) || currentNode,
+    [treeNodes, selectedNodeId, currentNode],
   );
 
   return (
-    <div className={`${isMobileTree ? "h-full" : "h-full"}`}>
-      <div className="absolute top-2 right-2 z-10 flex gap-1">
-        {currentNode?.parentId && (
-          <button
-            type="button"
-            onClick={() => onMergeNode(currentNode.id)}
-            className="text-xs px-2 py-1 bg-amber-500 text-white rounded hover:bg-amber-600"
-            title="Merge this branch into parent"
-          >
-            Merge
-          </button>
-        )}
-        {currentNode && (
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm("Delete this node and all children?")) {
-                onDeleteNode(currentNode.id);
-              }
+    <TooltipProvider delayDuration={300}>
+      <div className={`${isMobileTree ? "h-full" : "h-full"} relative`}>
+        <ReactFlow
+          nodes={fNodes}
+          edges={fEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
+          nodeTypes={nodeTypes}
+          fitView
+          attributionPosition="bottom-left"
+          minZoom={0.5}
+          maxZoom={1.5}
+        >
+          <Controls />
+          <MiniMap
+            style={{
+              background: "hsl(var(--background))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "var(--radius)",
             }}
-            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-            title="Delete this node"
-          >
-            Delete
-          </button>
+            nodeColor={(node) =>
+              node.data?.isActive
+                ? "hsl(var(--primary))"
+                : "hsl(var(--muted))"
+            }
+            maskColor="hsl(var(--background)/0.8)"
+          />
+          <Background
+            color="hsl(var(--border))"
+            gap={16}
+            size={1}
+          />
+        </ReactFlow>
+
+        {selectedNode && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-card border border-border rounded-lg shadow-lg p-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteClick(selectedNode)}
+                >
+                  Delete
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Delete this node and all children
+              </TooltipContent>
+            </Tooltip>
+            {selectedNode.parentId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onMergeNode(selectedNode.id)}
+                  >
+                    Merge
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Merge this branch into parent
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         )}
+
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Node</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete &ldquo;
+                {nodeToDelete?.title || "Untitled"}&rdquo; and all its
+                children? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-      <ReactFlow
-        nodes={fNodes}
-        edges={fEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        onNodeContextMenu={onNodeContextMenu}
-        fitView
-        attributionPosition="bottom-left"
-        minZoom={0.3}
-        maxZoom={2}
-      >
-        <Controls />
-        <MiniMap
-          style={{ background: "#0f172a" }}
-          nodeColor={(node) => (node.data?.isActive ? "#3b82f6" : "#1e293b")}
-        />
-        <Background color="#334155" gap={16} />
-      </ReactFlow>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -204,14 +239,14 @@ export function MobileTabBar({
   onTabChange: (tab: "chat" | "tree") => void;
 }) {
   return (
-    <div className="flex border-b border-zinc-200 dark:border-zinc-700 md:hidden">
+    <div className="flex border-b border-border md:hidden">
       <button
         type="button"
         onClick={() => onTabChange("chat")}
-        className={`flex-1 px-4 py-2 text-sm font-medium ${
+        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
           activeTab === "chat"
-            ? "text-blue-500 border-b-2 border-blue-500"
-            : "text-zinc-500"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         Chat
@@ -219,10 +254,10 @@ export function MobileTabBar({
       <button
         type="button"
         onClick={() => onTabChange("tree")}
-        className={`flex-1 px-4 py-2 text-sm font-medium ${
+        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
           activeTab === "tree"
-            ? "text-blue-500 border-b-2 border-blue-500"
-            : "text-zinc-500"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         Tree

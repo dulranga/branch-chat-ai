@@ -3,9 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatArea } from "@/components/chat-area";
 import { Sidebar } from "@/components/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { MobileTabBar, TreePanel } from "@/components/tree-panel";
 import {
   createChat,
+  deleteChat,
   deleteNode,
   editLastMessage,
   forkNode,
@@ -27,7 +34,6 @@ export default function ChatPage() {
   const [currentNode, setCurrentNode] = useState<Node | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [treeNodes, setTreeNodes] = useState<Node[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileTab, setMobileTab] = useState<"chat" | "tree">("chat");
   const [loading, setLoading] = useState(true);
 
@@ -91,6 +97,23 @@ export default function ChatPage() {
     await loadChat(chat);
   }
 
+  async function handleDeleteChat(chatId: string) {
+    await deleteChat(chatId);
+    setChats((prev) => prev.filter((c) => c.id !== chatId));
+    if (selectedChat?.id === chatId) {
+      setSelectedChat(null);
+      setCurrentNode(null);
+      setMessages([]);
+      setTreeNodes([]);
+    }
+  }
+
+  async function handleRenameChat(chatId: string, title: string) {
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, title } : c)),
+    );
+  }
+
   async function handleSendMessage(content: string) {
     if (!currentNode) return;
 
@@ -122,7 +145,10 @@ export default function ChatPage() {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodeId: currentNode.id, message: content }),
+      body: JSON.stringify({
+        messages: [{ role: "user", content }],
+        id: currentNode.id,
+      }),
     });
 
     if (res.ok && selectedChat) {
@@ -213,7 +239,7 @@ export default function ChatPage() {
 
   if (isPending) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-500">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
         Loading...
       </div>
     );
@@ -224,7 +250,7 @@ export default function ChatPage() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold">Branching Chat</h1>
-          <p className="text-zinc-500">
+          <p className="text-muted-foreground">
             Tree-structured AI conversations for learning
           </p>
         </div>
@@ -234,75 +260,89 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-500">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
         Loading conversations...
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full">
-      <Sidebar
-        chats={chats}
-        selectedChat={selectedChat}
-        onCreateChat={handleCreateChat}
-        onSelectChat={handleSelectChat}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+    <SidebarProvider>
+      <div className="flex-1 flex h-full">
+        <Sidebar
+          chats={chats}
+          selectedChat={selectedChat}
+          onCreateChat={handleCreateChat}
+          onSelectChat={handleSelectChat}
+          onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
+        />
 
-      <div className="flex-1 flex flex-col md:ml-64">
-        <MobileTabBar activeTab={mobileTab} onTabChange={setMobileTab} />
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Desktop: resizable panels */}
+          <div className="hidden md:flex flex-1">
+            <ResizablePanelGroup direction="horizontal" className="flex-1">
+              <ResizablePanel defaultSize={70} minSize={40}>
+                <ChatArea
+                  node={currentNode}
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  onFork={handleFork}
+                  onEditMessage={handleEditMessage}
+                />
+              </ResizablePanel>
 
-        <div className="flex-1 flex">
-          <div
-            className={`flex-1 flex flex-col ${
-              mobileTab === "tree" ? "hidden md:flex" : "flex"
-            }`}
-          >
-            <ChatArea
-              node={currentNode}
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onFork={handleFork}
-              onEditMessage={handleEditMessage}
-            />
+              <ResizableHandle withHandle />
+
+              <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+                <div className="h-full relative">
+                  {treeNodes.length > 0 ? (
+                    <TreePanel
+                      nodes={treeNodes}
+                      currentNode={currentNode}
+                      onSelectNode={handleSelectNode}
+                      onDeleteNode={handleDeleteNode}
+                      onMergeNode={handleMergeNode}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      No nodes yet
+                    </div>
+                  )}
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
 
-          <div
-            className={`w-80 border-l border-zinc-200 dark:border-zinc-700 hidden md:block ${
-              mobileTab === "tree" ? "md:block" : ""
-            }`}
-          >
-            <div className="h-full relative">
-              {treeNodes.length > 0 && (
-                <TreePanel
-                  nodes={treeNodes}
-                  currentNode={currentNode}
-                  onSelectNode={handleSelectNode}
-                  onDeleteNode={handleDeleteNode}
-                  onMergeNode={handleMergeNode}
-                />
-              )}
-            </div>
+          {/* Mobile: tab bar + conditional panels */}
+          <div className="flex flex-col flex-1 md:hidden">
+            <MobileTabBar activeTab={mobileTab} onTabChange={setMobileTab} />
+            {mobileTab === "chat" && (
+              <ChatArea
+                node={currentNode}
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                onFork={handleFork}
+                onEditMessage={handleEditMessage}
+              />
+            )}
+            {mobileTab === "tree" && (
+              <div className="h-full relative flex-1">
+                {treeNodes.length > 0 && (
+                  <TreePanel
+                    nodes={treeNodes}
+                    currentNode={currentNode}
+                    onSelectNode={handleSelectNode}
+                    onDeleteNode={handleDeleteNode}
+                    onMergeNode={handleMergeNode}
+                    isMobileTree
+                  />
+                )}
+              </div>
+            )}
           </div>
-
-          {mobileTab === "tree" && (
-            <div className="flex-1 md:hidden h-full relative">
-              {treeNodes.length > 0 && (
-                <TreePanel
-                  nodes={treeNodes}
-                  currentNode={currentNode}
-                  onSelectNode={handleSelectNode}
-                  onDeleteNode={handleDeleteNode}
-                  onMergeNode={handleMergeNode}
-                  isMobileTree
-                />
-              )}
-            </div>
-          )}
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

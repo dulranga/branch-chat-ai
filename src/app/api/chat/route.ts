@@ -23,9 +23,12 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { nodeId, message } = await req.json();
-  if (!nodeId || !message) {
-    return new Response("Missing nodeId or message", { status: 400 });
+  const { messages, id: nodeId } = (await req.json()) as {
+    messages: { id: string; role: string; content: string }[];
+    id?: string;
+  };
+  if (!nodeId || !messages || messages.length === 0) {
+    return new Response("Missing nodeId or messages", { status: 400 });
   }
 
   const node = await getNode(nodeId);
@@ -33,10 +36,15 @@ export async function POST(req: Request) {
     return new Response("Not found", { status: 404 });
   }
 
+  const lastMsg = messages[messages.length - 1];
+  if (lastMsg.role !== "user") {
+    return new Response("Last message must be from user", { status: 400 });
+  }
+
   const existingMsgs = await getNodeMessages(nodeId);
   const isFirstInNode = existingMsgs.length === 0;
 
-  const userMsg = await appendMessage(nodeId, message, "user");
+  const userMsg = await appendMessage(nodeId, lastMsg.content, "user");
 
   let contextMsgs: Awaited<ReturnType<typeof getNodeMessages>> = [];
   if (isFirstInNode) {
