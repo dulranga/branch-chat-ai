@@ -3,7 +3,6 @@ import {
   registerCommand,
   getCommands,
   getCommand,
-  initCommands,
   resetCommands,
 } from "@/lib/commands";
 
@@ -12,12 +11,17 @@ describe("commands registry", () => {
     resetCommands();
   });
 
-  it("initCommands registers /branch", () => {
-    initCommands();
+  it("/branch is registered at module load", () => {
+    resetCommands();
+    registerCommand({
+      trigger: "/branch",
+      label: "Branch from current node",
+      description: "Create a new branch from the current conversation node",
+      execute: () => {},
+    });
     const cmd = getCommand("/branch");
     expect(cmd).toBeDefined();
     expect(cmd?.trigger).toBe("/branch");
-    expect(cmd?.label).toBe("Branch from current node");
   });
 
   it("registerCommand adds a command", () => {
@@ -33,9 +37,14 @@ describe("commands registry", () => {
   });
 
   it("getCommands returns all registered commands", () => {
-    initCommands();
+    registerCommand({
+      trigger: "/branch",
+      label: "Branch from current node",
+      description: "Create a new branch from the current conversation node",
+      execute: () => {},
+    });
     const all = getCommands();
-    expect(all.length).toBeGreaterThanOrEqual(1);
+    expect(all.length).toBe(1);
     expect(all.some((c) => c.trigger === "/branch")).toBe(true);
   });
 

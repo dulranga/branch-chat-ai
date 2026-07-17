@@ -6,7 +6,6 @@ import { CommandPalette } from "@/components/chat/command-palette";
 const mockExecute = vi.fn();
 
 vi.mock("@/lib/commands", () => ({
-  initCommands: vi.fn(),
   getCommands: () => [
     {
       trigger: "/branch",

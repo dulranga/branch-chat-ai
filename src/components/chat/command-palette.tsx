@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import type { CommandContext } from "@/lib/types";
-import { getCommands, initCommands } from "@/lib/commands";
+import { getCommands } from "@/lib/commands";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -24,11 +24,6 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ context }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    initCommands();
-  }, []);
-
   const commands = getCommands();
 
   const handleSelect = useCallback(
