@@ -40,4 +40,16 @@ export interface ModelProviderConfig {
   package: string;
   constructor: string;
   models: string[];
+  baseURL?: string;
+}
+
+export interface CommandContext {
+  onFork: (messageId: string) => void;
+}
+
+export interface Command {
+  trigger: string;
+  label: string;
+  description: string;
+  execute: (context: CommandContext) => void;
 }

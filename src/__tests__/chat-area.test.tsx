@@ -101,4 +101,53 @@ describe("ChatArea", () => {
     );
     expect(screen.getByText("Test Conversation")).toBeDefined();
   });
+
+  it("shows onboarding card when no models configured", () => {
+    render(
+      <ChatArea
+        node={mockNode}
+        messages={mockMessages}
+        onSendMessage={vi.fn()}
+        onFork={vi.fn()}
+        onEditMessage={vi.fn()}
+        userModels={[]}
+        activeModel={null}
+        onSetActiveModel={vi.fn()}
+        reasoningLevel="provider-default"
+        onSetReasoningLevel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Configure a Model")).toBeDefined();
+    expect(screen.getByText("Go to Settings")).toBeDefined();
+  });
+
+  it("shows prompt input when models exist", () => {
+    const mockModels = [
+      {
+        id: "m1",
+        userId: "u1",
+        provider: "openai",
+        model: "gpt-4o",
+        name: "My GPT-4o",
+        createdAt: new Date(),
+      },
+    ];
+
+    render(
+      <ChatArea
+        node={mockNode}
+        messages={mockMessages}
+        onSendMessage={vi.fn()}
+        onFork={vi.fn()}
+        onEditMessage={vi.fn()}
+        userModels={mockModels}
+        activeModel={mockModels[0]}
+        onSetActiveModel={vi.fn()}
+        reasoningLevel="provider-default"
+        onSetReasoningLevel={vi.fn()}
+      />,
+    );
+    expect(screen.getByPlaceholderText(/Type a message/)).toBeDefined();
+    expect(screen.queryByText("Configure a Model")).toBeNull();
+  });
 });

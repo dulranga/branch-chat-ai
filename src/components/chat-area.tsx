@@ -29,6 +29,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Pencil, GitBranch, RotateCcw } from "lucide-react";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { ReasoningLevelSelector } from "@/components/chat/reasoning-level-selector";
+import { CommandPalette } from "@/components/chat/command-palette";
+import { OnboardingCard } from "@/components/chat/onboarding-card";
 
 interface ChatAreaProps {
   node: Node | null;
@@ -242,29 +244,38 @@ export function ChatArea({
         <ConversationScrollButton />
       </Conversation>
 
-      <PromptInput
-        onSubmit={handleSubmit}
-        className="shrink-0 border-t border-border p-4"
-      >
-        <PromptInputTextarea
-          placeholder="Type a message... (/branch to fork)"
-          disabled={isStreaming}
-        />
-        <PromptInputFooter>
-          <PromptInputTools>
-            <ModelSelector
-              models={userModels}
-              activeModel={activeModel}
-              onSelect={onSetActiveModel}
-            />
-            <ReasoningLevelSelector
-              value={reasoningLevel}
-              onChange={onSetReasoningLevel}
-            />
-          </PromptInputTools>
-          <PromptInputSubmit status={chatStatus} disabled={isStreaming} />
-        </PromptInputFooter>
-      </PromptInput>
+      {userModels.length === 0 ? (
+        <div className="shrink-0 border-t border-border p-6">
+          <OnboardingCard />
+        </div>
+      ) : (
+        <PromptInput
+          onSubmit={handleSubmit}
+          className="shrink-0 border-t border-border p-4"
+        >
+          <PromptInputTextarea
+            placeholder="Type a message... (/branch to fork)"
+            disabled={isStreaming}
+          />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <CommandPalette
+                context={{ onFork }}
+              />
+              <ModelSelector
+                models={userModels}
+                activeModel={activeModel}
+                onSelect={onSetActiveModel}
+              />
+              <ReasoningLevelSelector
+                value={reasoningLevel}
+                onChange={onSetReasoningLevel}
+              />
+            </PromptInputTools>
+            <PromptInputSubmit status={chatStatus} disabled={isStreaming} />
+          </PromptInputFooter>
+        </PromptInput>
+      )}
     </div>
   );
 }
