@@ -22,5 +22,22 @@ export interface Message {
   content: string;
   order: number;
   replyTo: string | null;
+  modelConfigId: string | null;
+  reasoningLevel: string | null;
   createdAt: Date;
+}
+
+export interface UserModel {
+  id: string;
+  userId: string;
+  provider: string;
+  model: string;
+  name: string;
+  createdAt: Date;
+}
+
+export interface ModelProviderConfig {
+  package: string;
+  constructor: string;
+  models: string[];
 }

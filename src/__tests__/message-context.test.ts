@@ -21,6 +21,8 @@ describe("combineMessages", () => {
       content: "Ancestor user msg",
       order: 0,
       replyTo: null,
+      modelConfigId: null,
+      reasoningLevel: null,
       createdAt: new Date("2024-01-01"),
     },
     {
@@ -30,6 +32,8 @@ describe("combineMessages", () => {
       content: "Ancestor AI response",
       order: 1,
       replyTo: "a1",
+      modelConfigId: null,
+      reasoningLevel: null,
       createdAt: new Date("2024-01-01"),
     },
   ];
@@ -42,6 +46,8 @@ describe("combineMessages", () => {
       content: "Current user msg",
       order: 0,
       replyTo: null,
+      modelConfigId: null,
+      reasoningLevel: null,
       createdAt: new Date("2024-01-02"),
     },
   ];

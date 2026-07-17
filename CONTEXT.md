@@ -58,6 +58,67 @@ The action of creating a new child Node from a given Node, used when the user wa
 **Delete Node**:
 Permanently removes a Node and all of its descendant Nodes. Deleting the Root Node of a Chat removes the entire Chat and all its contents.
 
+**Model Provider**:
+A third-party AI service that offers language models — OpenAI, Anthropic, Google, Mistral, Groq, etc. Each provider is backed by an ai-sdk package (`@ai-sdk/openai`, `@ai-sdk/anthropic`, etc.) and a constructor function (`createOpenAI`, `createAnthropic`, etc.). Providers are defined in the Model Catalog.
+_Avoid_: LLM vendor, AI service
+
+**Model Flavor**:
+A specific model offered by a Model Provider (e.g. `gpt-4o`, `claude-3.5-sonnet`, `gemini-2.0-flash`). The combination of provider + model flavor uniquely identifies what the AI SDK will call. Model flavors are defined in the Model Catalog, under their parent provider.
+_Avoid_: Model name only, variant
+
+**Model Catalog**:
+The file `src/config/models.yaml` that declares every supported Model Provider and its available Model Flavors. It is the single source of truth for what users can configure. The catalog maps each provider to its ai-sdk package path and constructor, and lists the model flavors under it. Adding a new provider or model means editing this file.
+
+**User Model**:
+A user's personal configuration linking a Model Provider, a Model Flavor, and their own API key (encrypted via pgcrypto). Stored in the `user_models` table. Users can add many models on the Settings Page and switch between them freely.
+_Avoid_: API key entry, credential
+
+**Active Model**:
+The User Model currently selected for chatting. Stored as `active_model_config_id` on the `user` table. Changed via the model dropdown in the chat input area. On page load the client reads this from the server; if unset, falls back to the user's most recently created User Model. The Active Model is stored per-user, not per-chat.
+_Avoid_: Current model, selected model
+
+**System Model**:
+The model used for app-internal tasks — title generation and similar. Configured entirely via environment variables (provider + model + API key). Invisible to users; never shown on the Settings Page.
+_Avoid_: Global model, admin model
+
+**Settings Page**:
+A top-level route at `/settings` where users manage their User Models. They can add a new model (pick provider → pick flavor → enter API key), delete existing models, and see which model is currently active. Also shows the onboarding flow for first-time users who haven't added any model yet.
+_Avoid_: Config page, preferences
+
+**Model Dropdown**:
+A dropdown in the chat input area that lets the user select their Active Model. Lists all of the user's User Models. Changing the selection updates the Active Model on the server and in localStorage (for fast client-side default on next visit).
+_Avoid_: Model picker (use this term only for the settings page version)
+
+**Encrypted API Key**:
+A user's API key encrypted using pgcrypto `pgp_sym_encrypt`/`pgp_sym_decrypt` with a key from the `APP_ENCRYPTION_KEY` environment variable. Stored in the `api_key_encrypted` column of the `user_models` table. Decrypted at query time when the server needs to instantiate a provider for streaming.
+
+**Input Container**:
+The main input area of the chat page — a large multiline textarea inside a clean card-like container with subtle borders and clear hierarchy. Below or integrated within the container is a toolbar with model selector, /commands menu, reasoning level selector, and (future) file attachment. Designed to feel like a professional AI coding environment while staying conversational.
+
+**Model Selector**:
+A dropdown in the Input Container toolbar. Groups models by provider, shows a search field to filter across both provider and model names. Selecting a model sets it as the Active Model (PATCH to server, updated in localStorage). Empty state shows "No models match" only (no add link).
+
+**Reasoning Level**:
+A dropdown in the Input Container toolbar with seven levels: `provider-default`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. Controls how much thinking effort the model applies. Can be changed per message — each message stores its `reasoning_level` for traceability.
+_Avoid_: Thinking effort, compute level
+
+**Command Palette**:
+A dropdown menu in the Input Container toolbar that lists available slash commands and agent actions. All commands share a common interface: some change site behavior (e.g. `/branch` triggers a fork), others simply insert text into the input. Designed to be easy to add new commands later.
+_Avoid_: Slash menu, actions menu
+
+**Command**:
+A single entry in the Command Palette. Defined by a common interface with properties: trigger (e.g. `/branch`), label, description, and an `execute` method. The implementation discriminates between commands that mutate app state (like forking a node) and commands that only insert text into the input.
+
+**Settings Page**:
+A top-level route at `/settings` with a sidebar navigation layout. The sidebar shows "Models" (selected by default, with a robot/AI icon) plus placeholder items for future sections (General, Appearance). A top nav bar links back to the Chat page. Models section uses a multi-step wizard for adding new models.
+
+**Add Model Wizard**:
+A 3-step wizard on the Settings Page for creating a User Model:
+1. **Provider** — pick a Model Provider (card grid or list)
+2. **Model** — pick a Model Flavor from the selected provider (list with search)
+3. **Configure** — set an editable auto-generated name, enter the API key, save
+API key can be edited later inline on the model card. Changing provider or model requires delete-and-re-add.
+
 ## Coding Standards
 
 **Never use custom components if they are provided by shadcn/ui.** Always prefer the shadcn component for common UI patterns (buttons, inputs, cards, dialogs, tabs, textareas, tooltips, etc.). Custom DOM or styling should only be used for truly unique behaviors that shadcn does not cover.

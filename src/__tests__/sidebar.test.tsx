@@ -28,6 +28,7 @@ function renderSidebar(props: Partial<Parameters<typeof Sidebar>[0]> = {}) {
       <Sidebar
         chats={mockChats}
         selectedChat={null}
+        branchCounts={{}}
         onCreateChat={vi.fn()}
         onSelectChat={vi.fn()}
         {...props}

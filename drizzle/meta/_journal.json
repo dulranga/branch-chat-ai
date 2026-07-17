@@ -15,6 +15,13 @@
       "when": 1784220861415,
       "tag": "0001_many_stardust",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784300000000,
+      "tag": "0002_add_user_models",
+      "breakpoints": true
     }
   ]
 }

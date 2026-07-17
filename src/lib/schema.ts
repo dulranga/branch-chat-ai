@@ -1,11 +1,28 @@
 import {
   boolean,
+  customType,
   integer,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer; driverData: string }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const userModels = pgTable("user_models", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  name: text("name").notNull(),
+  apiKeyEncrypted: bytea("api_key_encrypted").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -15,6 +32,7 @@ export const user = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
+  activeModelConfigId: uuid("active_model_config_id"),
 });
 
 export const session = pgTable("session", {
@@ -89,5 +107,7 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   order: integer("order").notNull(),
   replyTo: uuid("reply_to"),
+  modelConfigId: uuid("model_config_id"),
+  reasoningLevel: text("reasoning_level"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

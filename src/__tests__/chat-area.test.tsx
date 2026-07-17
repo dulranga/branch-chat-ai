@@ -33,6 +33,8 @@ const mockMessages: Message[] = [
     content: "Hello there",
     order: 0,
     replyTo: null,
+    modelConfigId: null,
+    reasoningLevel: null,
     createdAt: new Date(),
   },
   {
@@ -42,6 +44,8 @@ const mockMessages: Message[] = [
     content: "Hi! How can I help you?",
     order: 1,
     replyTo: "m1",
+    modelConfigId: null,
+    reasoningLevel: null,
     createdAt: new Date(),
   },
 ];

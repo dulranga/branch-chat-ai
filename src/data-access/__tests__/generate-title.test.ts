@@ -74,6 +74,8 @@ describe("generateTitle", () => {
           content: "Hello I need help with math",
           order: 0,
           replyTo: null,
+          modelConfigId: null,
+          reasoningLevel: null,
           createdAt: new Date(),
         },
       ]);
@@ -99,9 +101,9 @@ describe("generateTitle", () => {
         { id: "node-1", userId: "u1", chatId: "chat-1", title: null },
       ])
       .mockReturnValueOnce([
-        { id: "m1", nodeId: "node-1", role: "user", content: "hi", order: 0, replyTo: null, createdAt: new Date() },
-        { id: "m2", nodeId: "node-1", role: "user", content: "need help", order: 1, replyTo: null, createdAt: new Date() },
-        { id: "m3", nodeId: "node-1", role: "user", content: "with math", order: 2, replyTo: null, createdAt: new Date() },
+        { id: "m1", nodeId: "node-1", role: "user", content: "hi", order: 0, replyTo: null, modelConfigId: null, reasoningLevel: null, createdAt: new Date() },
+        { id: "m2", nodeId: "node-1", role: "user", content: "need help", order: 1, replyTo: null, modelConfigId: null, reasoningLevel: null, createdAt: new Date() },
+        { id: "m3", nodeId: "node-1", role: "user", content: "with math", order: 2, replyTo: null, modelConfigId: null, reasoningLevel: null, createdAt: new Date() },
       ]);
 
     const result = await generateTitle("node-1");

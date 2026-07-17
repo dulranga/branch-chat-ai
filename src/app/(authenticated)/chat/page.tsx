@@ -156,6 +156,8 @@ export default function ChatPage() {
         content,
         order: prev.length,
         replyTo: null,
+        modelConfigId: null,
+        reasoningLevel: null,
         createdAt: new Date(),
       },
       {
@@ -165,6 +167,8 @@ export default function ChatPage() {
         content: "",
         order: prev.length + 1,
         replyTo: userMsgId,
+        modelConfigId: null,
+        reasoningLevel: null,
         createdAt: new Date(),
       },
     ]);

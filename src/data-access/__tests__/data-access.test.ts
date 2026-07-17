@@ -21,6 +21,13 @@ describe("Data Access Layer – smoke", () => {
       "mergeNode",
       "getSubtree",
       "generateTitle",
+      "createUserModel",
+      "getUserModels",
+      "updateModelApiKey",
+      "deleteUserModel",
+      "setActiveModel",
+      "getActiveModel",
+      "getLatestUserModel",
     ];
     for (const name of functionNames) {
       expect(typeof mod[name as keyof typeof mod]).toBe("function");

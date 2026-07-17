@@ -4,6 +4,7 @@ import { generateText } from "ai";
 import { getModel } from "@/lib/llm";
 
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { user, userModels } from "@/lib/schema";
 import { headers } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
@@ -364,6 +365,163 @@ export async function generateTitle(nodeId: string) {
     .set({ title: cleanTitle })
     .where(eq(chats.id, node.chatId));
   return cleanTitle;
+}
+
+export async function createUserModel(
+  provider: string,
+  model: string,
+  name: string,
+  apiKey: string,
+) {
+  const session = await requireAuth();
+  const id = uuidv4();
+
+  await db.execute(sql`
+    INSERT INTO user_models (id, user_id, provider, model, name, api_key_encrypted)
+    VALUES (
+      ${id},
+      ${session.user.id},
+      ${provider},
+      ${model},
+      ${name},
+      pgp_sym_encrypt(${apiKey}, current_setting('app.encryption_key'))
+    )
+  `);
+
+  const existing = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userModels)
+    .where(eq(userModels.userId, session.user.id));
+
+  if (existing[0].count === 1) {
+    await db
+      .update(user)
+      .set({ activeModelConfigId: id })
+      .where(eq(user.id, session.user.id));
+  }
+
+  return { id, provider, model, name };
+}
+
+export async function getUserModels() {
+  const session = await requireAuth();
+  return db
+    .select({
+      id: userModels.id,
+      userId: userModels.userId,
+      provider: userModels.provider,
+      model: userModels.model,
+      name: userModels.name,
+      createdAt: userModels.createdAt,
+    })
+    .from(userModels)
+    .where(eq(userModels.userId, session.user.id))
+    .orderBy(desc(userModels.createdAt));
+}
+
+export async function updateModelApiKey(modelId: string, apiKey: string) {
+  const session = await requireAuth();
+  const model = await db
+    .select()
+    .from(userModels)
+    .where(eq(userModels.id, modelId))
+    .then((r) => r[0] ?? null);
+
+  if (!model || model.userId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.execute(sql`
+    UPDATE user_models
+    SET api_key_encrypted = pgp_sym_encrypt(${apiKey}, current_setting('app.encryption_key'))
+    WHERE id = ${modelId}
+  `);
+}
+
+export async function deleteUserModel(modelId: string) {
+  const session = await requireAuth();
+  const model = await db
+    .select()
+    .from(userModels)
+    .where(eq(userModels.id, modelId))
+    .then((r) => r[0] ?? null);
+
+  if (!model || model.userId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const activeModelRow = await db
+    .select({ activeModelConfigId: user.activeModelConfigId })
+    .from(user)
+    .where(eq(user.id, session.user.id))
+    .then((r) => r[0] ?? null);
+
+  if (activeModelRow?.activeModelConfigId === modelId) {
+    await db
+      .update(user)
+      .set({ activeModelConfigId: null })
+      .where(eq(user.id, session.user.id));
+  }
+
+  await db.delete(userModels).where(eq(userModels.id, modelId));
+}
+
+export async function setActiveModel(modelId: string | null) {
+  const session = await requireAuth();
+
+  if (modelId !== null) {
+    const model = await db
+      .select()
+      .from(userModels)
+      .where(eq(userModels.id, modelId))
+      .then((r) => r[0] ?? null);
+
+    if (!model || model.userId !== session.user.id) {
+      throw new Error("Unauthorized");
+    }
+  }
+
+  await db
+    .update(user)
+    .set({ activeModelConfigId: modelId })
+    .where(eq(user.id, session.user.id));
+}
+
+export async function getActiveModel() {
+  const session = await requireAuth();
+  const result = await db
+    .select({
+      id: userModels.id,
+      userId: userModels.userId,
+      provider: userModels.provider,
+      model: userModels.model,
+      name: userModels.name,
+      createdAt: userModels.createdAt,
+    })
+    .from(userModels)
+    .innerJoin(user, eq(user.activeModelConfigId, userModels.id))
+    .where(eq(user.id, session.user.id));
+
+  return result[0] ?? null;
+}
+
+export async function getLatestUserModel() {
+  const session = await requireAuth();
+  const result = await db
+    .select({
+      id: userModels.id,
+      userId: userModels.userId,
+      provider: userModels.provider,
+      model: userModels.model,
+      name: userModels.name,
+      createdAt: userModels.createdAt,
+    })
+    .from(userModels)
+    .where(eq(userModels.userId, session.user.id))
+    .orderBy(desc(userModels.createdAt))
+    .limit(1);
+
+  return result[0] ?? null;
 }
 
 export async function getBranchCounts(): Promise<Record<string, number>> {
