@@ -364,10 +364,12 @@ export async function generateTitle(nodeId: string) {
 
   const cleanTitle = title.trim().slice(0, 80);
   await db.update(nodes).set({ title: cleanTitle }).where(eq(nodes.id, nodeId));
-  await db
-    .update(chats)
-    .set({ title: cleanTitle })
-    .where(eq(chats.id, node.chatId));
+  if (!node.parentId) {
+    await db
+      .update(chats)
+      .set({ title: cleanTitle })
+      .where(eq(chats.id, node.chatId));
+  }
   return cleanTitle;
 }
 

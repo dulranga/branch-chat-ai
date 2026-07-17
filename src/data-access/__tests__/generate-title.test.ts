@@ -34,15 +34,16 @@ function createThenable() {
 
 const mockDbWhere = vi.fn(() => createThenable());
 const mockDbFrom = vi.fn(() => ({ where: mockDbWhere }));
+const mockDbUpdate = vi.fn(() => ({
+  set: vi.fn(() => ({
+    where: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 vi.mock("@/lib/db", () => ({
   db: {
     select: () => ({ from: mockDbFrom }),
-    update: () => ({
-      set: () => ({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
-    }),
+    update: mockDbUpdate,
   },
 }));
 
@@ -148,5 +149,28 @@ describe("generateTitle", () => {
 
     expect(result).toBeNull();
     expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it("does not update chat title when node is not root", async () => {
+    mockDbUpdate.mockClear();
+    const { generateTitle } = await import("../index");
+
+    mockGenerateText.mockResolvedValue({ text: "Fork Title" });
+
+    mockSelectResult
+      .mockReturnValueOnce([
+        { id: "node-2", userId: "u1", chatId: "chat-1", parentId: "node-1", title: null },
+      ])
+      .mockReturnValueOnce([
+        { id: "node-2", userId: "u1", chatId: "chat-1", parentId: "node-1", title: null },
+      ])
+      .mockReturnValueOnce([
+        { id: "m1", nodeId: "node-2", role: "user", content: "Tell me a joke", order: 0, replyTo: null, modelConfigId: null, reasoningLevel: null, createdAt: new Date() },
+      ]);
+
+    const result = await generateTitle("node-2");
+
+    expect(result).toBe("Fork Title");
+    expect(mockDbUpdate).toHaveBeenCalledTimes(1);
   });
 });
