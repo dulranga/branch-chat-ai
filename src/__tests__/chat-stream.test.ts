@@ -1,6 +1,6 @@
 import { streamText } from "ai";
 import { describe, expect, it } from "vitest";
-import { getModel } from "@/lib/llm";
+import { getSystemModelInstance } from "@/lib/llm";
 
 describe("chat stream", () => {
   it("streams a response", async () => {
@@ -9,7 +9,7 @@ describe("chat stream", () => {
     }
 
     const result = streamText({
-      model: getModel(),
+      model: getSystemModelInstance(),
       messages: [{ role: "user", content: 'Reply with exactly "hello world"' }],
     });
 

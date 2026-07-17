@@ -50,6 +50,14 @@ const mockMessages: Message[] = [
   },
 ];
 
+const sharedProps = {
+  userModels: [],
+  activeModel: null,
+  onSetActiveModel: vi.fn(),
+  reasoningLevel: "provider-default",
+  onSetReasoningLevel: vi.fn(),
+};
+
 describe("ChatArea", () => {
   it("shows empty state when no node", () => {
     render(
@@ -59,6 +67,7 @@ describe("ChatArea", () => {
         onSendMessage={vi.fn()}
         onFork={vi.fn()}
         onEditMessage={vi.fn()}
+        {...sharedProps}
       />,
     );
     expect(screen.getByText(/No conversation yet/i)).toBeDefined();
@@ -72,6 +81,7 @@ describe("ChatArea", () => {
         onSendMessage={vi.fn()}
         onFork={vi.fn()}
         onEditMessage={vi.fn()}
+        {...sharedProps}
       />,
     );
     expect(screen.getByText("Hello there")).toBeDefined();
@@ -86,6 +96,7 @@ describe("ChatArea", () => {
         onSendMessage={vi.fn()}
         onFork={vi.fn()}
         onEditMessage={vi.fn()}
+        {...sharedProps}
       />,
     );
     expect(screen.getByText("Test Conversation")).toBeDefined();

@@ -1,7 +1,7 @@
 "use server";
 
 import { generateText } from "ai";
-import { getModel } from "@/lib/llm";
+import { getSystemModelInstance } from "@/lib/llm";
 
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { user, userModels } from "@/lib/schema";
@@ -127,6 +127,8 @@ export async function appendMessage(
   content: string,
   role: "user" | "assistant" | "system" = "user",
   replyTo?: string,
+  modelConfigId?: string | null,
+  reasoningLevel?: string | null,
 ) {
   const session = await requireAuth();
   const node = await getNode(nodeId);
@@ -147,6 +149,8 @@ export async function appendMessage(
     content,
     order,
     replyTo: replyTo ?? null,
+    modelConfigId: modelConfigId ?? null,
+    reasoningLevel: reasoningLevel ?? null,
   });
 
   return { id, order, content, role, nodeId };
@@ -298,7 +302,7 @@ export async function mergeNode(childNodeId: string) {
     .join("\n");
 
   const { text: summary } = await generateText({
-    model: getModel(),
+    model: getSystemModelInstance(),
     system:
       "Summarize the following conversation concisely in 2-3 sentences. Capture the key question and answer.",
     messages: [{ role: "user", content: conversationText }],
@@ -352,7 +356,7 @@ export async function generateTitle(nodeId: string) {
     .join("\n");
 
   const { text: title } = await generateText({
-    model: getModel(),
+    model: getSystemModelInstance(),
     system:
       "Generate a very short title (max 6 words) for a conversation based on the user's messages. Return only the title, no quotes or punctuation.",
     messages: [{ role: "user", content: messagesText }],
@@ -522,6 +526,18 @@ export async function getLatestUserModel() {
     .limit(1);
 
   return result[0] ?? null;
+}
+
+export async function decryptApiKey(modelId: string): Promise<string> {
+  const session = await requireAuth();
+  const result = await db.execute(sql`
+    SELECT pgp_sym_decrypt(api_key_encrypted, current_setting('app.encryption_key')) AS api_key
+    FROM user_models
+    WHERE id = ${modelId} AND user_id = ${session.user.id}
+  `);
+  const row = result.rows[0] as { api_key: string } | undefined;
+  if (!row) throw new Error("Model not found");
+  return row.api_key;
 }
 
 export async function getBranchCounts(): Promise<Record<string, number>> {

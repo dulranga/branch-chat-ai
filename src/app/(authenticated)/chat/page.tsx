@@ -27,17 +27,21 @@ import {
   editLastMessage,
   forkNode,
   generateTitle,
+  getActiveModel,
   getAncestorMessages,
   getBranchCounts,
   getChatRootNode,
   getChatTree,
+  getLatestUserModel,
   getNode,
   getNodeMessages,
   getUserChats,
+  getUserModels,
   mergeNode,
+  setActiveModel,
 } from "@/data-access";
 import { useSession } from "@/lib/auth-client";
-import type { Chat, Message, Node } from "@/lib/types";
+import type { Chat, Message, Node, UserModel } from "@/lib/types";
 
 export default function ChatPage() {
   const { data: session, isPending } = useSession();
@@ -49,6 +53,9 @@ export default function ChatPage() {
   const [treeNodes, setTreeNodes] = useState<Node[]>([]);
   const [mobileTab, setMobileTab] = useState<"chat" | "tree">("chat");
   const [loading, setLoading] = useState(true);
+  const [activeModel, setActiveModelState] = useState<UserModel | null>(null);
+  const [userModels, setUserModels] = useState<UserModel[]>([]);
+  const [reasoningLevel, setReasoningLevel] = useState("provider-default");
 
   const loadFullMessages = useCallback(async (nodeId: string) => {
     const [nodeMsgs, ancestorMsgs] = await Promise.all([
@@ -90,12 +97,33 @@ export default function ChatPage() {
     }
 
     async function init() {
-      const [userChats, counts] = await Promise.all([
+      const [userChats, counts, models] = await Promise.all([
         getUserChats(),
         getBranchCounts(),
+        getUserModels(),
       ]);
       setChats(userChats as unknown as Chat[]);
       setBranchCounts(counts);
+      setUserModels(models as unknown as UserModel[]);
+
+      const serverModel = await getActiveModel();
+      if (serverModel) {
+        setActiveModelState(serverModel as unknown as UserModel);
+        localStorage.setItem("activeModelId", serverModel.id);
+      } else {
+        const lsId = localStorage.getItem("activeModelId");
+        if (lsId && models.some((m: unknown) => (m as UserModel).id === lsId)) {
+          const found = (models as unknown as UserModel[]).find((m) => m.id === lsId);
+          if (found) {
+            setActiveModelState(found);
+          }
+        } else if (models.length > 0) {
+          const latest = (models as unknown as UserModel[])[0];
+          setActiveModelState(latest);
+          localStorage.setItem("activeModelId", latest.id);
+        }
+      }
+
       setLoading(false);
     }
     init();
@@ -141,11 +169,25 @@ export default function ChatPage() {
     setBranchCounts(counts);
   }
 
+  const handleSetActiveModel = useCallback(async (model: UserModel) => {
+    setActiveModelState(model);
+    localStorage.setItem("activeModelId", model.id);
+    try {
+      await setActiveModel(model.id);
+    } catch {
+      // silently fail - localStorage will still be used on next load
+    }
+    setUserModels((prev) =>
+      prev.map((m) => ({ ...m, isActive: m.id === model.id }) as unknown as UserModel),
+    );
+  }, []);
+
   async function handleSendMessage(content: string) {
     if (!currentNode) return;
 
     const userMsgId = `temp-${Date.now()}`;
     const assistantMsgId = `streaming-${Date.now()}`;
+    const activeModelId = activeModel?.id ?? null;
 
     setMessages((prev) => [
       ...prev,
@@ -156,8 +198,8 @@ export default function ChatPage() {
         content,
         order: prev.length,
         replyTo: null,
-        modelConfigId: null,
-        reasoningLevel: null,
+        modelConfigId: activeModelId,
+        reasoningLevel,
         createdAt: new Date(),
       },
       {
@@ -167,8 +209,8 @@ export default function ChatPage() {
         content: "",
         order: prev.length + 1,
         replyTo: userMsgId,
-        modelConfigId: null,
-        reasoningLevel: null,
+        modelConfigId: activeModelId,
+        reasoningLevel,
         createdAt: new Date(),
       },
     ]);
@@ -179,6 +221,8 @@ export default function ChatPage() {
       body: JSON.stringify({
         messages: [{ role: "user", content }],
         id: currentNode.id,
+        modelConfigId: activeModelId,
+        reasoningLevel,
       }),
     });
 
@@ -350,6 +394,11 @@ export default function ChatPage() {
                 onSendMessage={handleSendMessage}
                 onFork={handleFork}
                 onEditMessage={handleEditMessage}
+                userModels={userModels}
+                activeModel={activeModel}
+                onSetActiveModel={handleSetActiveModel}
+                reasoningLevel={reasoningLevel}
+                onSetReasoningLevel={setReasoningLevel}
               />
             </ResizablePanel>
 
@@ -383,6 +432,11 @@ export default function ChatPage() {
               onSendMessage={handleSendMessage}
               onFork={handleFork}
               onEditMessage={handleEditMessage}
+              userModels={userModels}
+              activeModel={activeModel}
+              onSetActiveModel={handleSetActiveModel}
+              reasoningLevel={reasoningLevel}
+              onSetReasoningLevel={setReasoningLevel}
             />
           )}
           {mobileTab === "tree" && (

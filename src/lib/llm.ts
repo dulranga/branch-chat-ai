@@ -1,33 +1,35 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
+import { resolveProviderModel } from "@/lib/provider-utils";
 
-export interface LLMConfig {
-  name: string;
-  model: string;
-  baseURL: string;
-  apiKey: string;
+let systemModel: LanguageModel | null = null;
+
+function getSystemModel(): LanguageModel {
+  if (systemModel) return systemModel;
+
+  const provider = process.env.SYSTEM_MODEL_PROVIDER ?? "openai";
+  const model = process.env.SYSTEM_MODEL_NAME ?? "gpt-4o-mini";
+  const apiKey = process.env.SYSTEM_MODEL_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+
+  if (provider === "openai") {
+    const api = createOpenAI({ apiKey });
+    systemModel = api.chat(model);
+    return systemModel;
+  }
+
+  throw new Error(
+    `System model provider "${provider}" not supported. Use "openai" or set SYSTEM_MODEL_PROVIDER to a supported provider.`,
+  );
 }
 
-const OPENROUTER: LLMConfig = {
-  name: "OpenRouter",
-  model: "openrouter/free",
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY ?? "",
-};
+export function getSystemModelInstance(): LanguageModel {
+  return getSystemModel();
+}
 
-const OLLAMA: LLMConfig = {
-  name: "Ollama",
-  model: "gemma4:12b",
-  baseURL: "http://localhost:11434/v1",
-  apiKey: "ollama",
-};
-
-const activeConfig: LLMConfig = OPENROUTER;
-
-const provider = createOpenAI({
-  baseURL: activeConfig.baseURL,
-  apiKey: activeConfig.apiKey,
-});
-
-export function getModel() {
-  return provider.chat(activeConfig.model);
+export async function getUserModelInstance(
+  provider: string,
+  model: string,
+  apiKey: string,
+): Promise<LanguageModel> {
+  return resolveProviderModel(provider, model, apiKey);
 }
