@@ -55,7 +55,7 @@ describe("Sidebar", () => {
     const onCreateChat = vi.fn();
     renderSidebar({ onCreateChat });
     const user = userEvent.setup();
-    const newChatBtn = screen.getByTitle("New Chat");
+    const newChatBtn = screen.getByText("New Chat");
     await user.click(newChatBtn);
     expect(onCreateChat).toHaveBeenCalledOnce();
   });

@@ -12,8 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { signOut, useSession } from "@/lib/auth-client";
+import type { Chat } from "@/lib/types";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -23,15 +31,17 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarInput,
+  SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { signOut, useSession } from "@/lib/auth-client";
-import type { Chat } from "@/lib/types";
+import { ChevronsUpDown, GitBranch, LogOut, Plus, Trash2 } from "lucide-react";
 
 interface SidebarProps {
   chats: Chat[];
+  branchCounts: Record<string, number>;
   selectedChat: Chat | null;
   onCreateChat: () => void;
   onSelectChat: (chat: Chat) => void;
@@ -82,12 +92,14 @@ function groupChatsByDate(chats: Chat[]) {
 
 function ChatListItem({
   chat,
+  branchCount,
   isSelected,
   onSelect,
   onDelete,
   onRename,
 }: {
   chat: Chat;
+  branchCount: number;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: (chatId: string) => void;
@@ -120,7 +132,18 @@ function ChatListItem({
   return (
     <>
       <SidebarMenuItem>
-        <SidebarMenuButton isActive={isSelected} onClick={onSelect}>
+        <SidebarMenuButton
+          isActive={isSelected}
+          onClick={onSelect}
+          tooltip={chat.title || "Untitled Chat"}
+        >
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <span
+              className={`size-1.5 rounded-full ${
+                isSelected ? "bg-accent" : "bg-current opacity-30"
+              }`}
+            />
+          </span>
           {isEditing ? (
             <Input
               ref={inputRef}
@@ -136,18 +159,19 @@ function ChatListItem({
               {chat.title || "Untitled Chat"}
             </span>
           )}
+          {branchCount > 1 && (
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-accent/15 text-[10px] font-medium text-accent tabular-nums group-data-[collapsible=icon]:hidden">
+              {branchCount}
+            </span>
+          )}
         </SidebarMenuButton>
         {isSelected && !isEditing && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDeleteDialog(true);
-            }}
-            className="absolute right-1 top-1.5 flex aspect-square w-5 items-center justify-center rounded-md text-xs text-muted-foreground opacity-0 group-hover/menu-item:opacity-100 hover:bg-sidebar-accent"
+          <SidebarMenuAction
+            showOnHover
+            onClick={() => setShowDeleteDialog(true)}
           >
-            ✕
-          </button>
+            <Trash2 className="size-3" />
+          </SidebarMenuAction>
         )}
       </SidebarMenuItem>
 
@@ -186,6 +210,7 @@ function ChatListItem({
 
 export function Sidebar({
   chats,
+  branchCounts,
   selectedChat,
   onCreateChat,
   onSelectChat,
@@ -212,103 +237,116 @@ export function Sidebar({
   return (
     <ShadcnSidebar collapsible="none">
       <SidebarHeader>
-        <div className="flex items-center justify-between p-1">
-          <span className="text-sm font-semibold">Chats</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={onCreateChat}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              onClick={onCreateChat}
+              tooltip="New Chat"
             >
-              <title>New Chat</title>
-              <line x1="8" y1="2" x2="8" y2="14" />
-              <line x1="2" y1="8" x2="14" y2="8" />
-            </svg>
-          </Button>
-        </div>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+                <GitBranch className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-display text-base font-semibold tracking-tight">
+                  Branches
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  New conversation
+                </span>
+              </div>
+              <Plus className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <SidebarInput
-          placeholder="Search chats..."
+          placeholder="Find a conversation..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          className="group-data-[collapsible=icon]:hidden"
         />
       </SidebarHeader>
 
       <SidebarContent>
-        <ScrollArea className="flex-1">
-          {groups.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {searchQuery
-                ? "No chats match your search"
-                : "No chats yet. Start a new one!"}
-            </div>
-          ) : (
-            groups.map((group) => (
-              <SidebarGroup key={group.label}>
-                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-                <SidebarGroupContent>
+        {groups.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {searchQuery ? "No matches" : "No conversations yet"}
+          </div>
+        ) : (
+          groups.map((group) => (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel className="font-display text-[13px] font-light italic text-sidebar-foreground/50 px-3">
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
                   {group.chats.map((chat) => (
                     <ChatListItem
                       key={chat.id}
                       chat={chat}
+                      branchCount={branchCounts[chat.id] || 1}
                       isSelected={selectedChat?.id === chat.id}
                       onSelect={() => onSelectChat(chat)}
                       onDelete={(id) => onDeleteChat?.(id)}
                       onRename={(id, title) => onRenameChat?.(id, title)}
                     />
                   ))}
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))
-          )}
-        </ScrollArea>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        )}
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">
-              {session?.user.email?.charAt(0).toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm truncate text-sidebar-foreground">
-              {session?.user.email || "User"}
-            </p>
-          </div>
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => signOut()}
-            title="Sign Out"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Sign Out</title>
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-          </Button>
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={session?.user.name || "User"}
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="size-6 rounded-sm">
+                    <AvatarFallback className="text-xs rounded-sm">
+                      {session?.user.email?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">
+                      {session?.user.name || "User"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                      {session?.user.email || ""}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                side="right"
+                align="end"
+                sideOffset={4}
+              >
+                <div className="flex items-center gap-2 px-2 py-1.5">
+                  <ThemeToggle />
+                  <span className="text-xs text-muted-foreground">
+                    Toggle theme
+                  </span>
+                </div>
+                <DropdownMenuItem onClick={() => signOut()}>
+                  <LogOut className="size-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
+
+      <SidebarRail />
     </ShadcnSidebar>
   );
 }
