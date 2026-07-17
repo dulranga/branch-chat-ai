@@ -56,7 +56,7 @@ describe("Sidebar", () => {
     const onCreateChat = vi.fn();
     renderSidebar({ onCreateChat });
     const user = userEvent.setup();
-    const newChatBtn = screen.getByText("New Chat");
+    const newChatBtn = screen.getByText("New conversation");
     await user.click(newChatBtn);
     expect(onCreateChat).toHaveBeenCalledOnce();
   });
@@ -64,7 +64,7 @@ describe("Sidebar", () => {
   it("shows search input and filters chats", async () => {
     renderSidebar();
     const user = userEvent.setup();
-    const searchInput = screen.getByPlaceholderText("Search chats...");
+    const searchInput = screen.getByPlaceholderText("Find a conversation...");
     await user.type(searchInput, "Second");
     expect(screen.queryByText("My First Chat")).toBeNull();
     expect(screen.getByText("Second Chat")).toBeDefined();
