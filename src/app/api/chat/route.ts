@@ -2,7 +2,6 @@ import { streamText } from "ai";
 import { headers } from "next/headers";
 import {
   appendMessage,
-  generateTitle,
   getAncestorMessages,
   getNode,
   getNodeMessages,
@@ -62,7 +61,6 @@ export async function POST(req: Request) {
     messages: aiMessages,
     async onFinish({ text }) {
       await appendMessage(nodeId, text, "assistant", userMsg.id);
-      await generateTitle(nodeId);
     },
   });
 

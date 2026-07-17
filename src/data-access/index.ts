@@ -298,14 +298,9 @@ export async function mergeNode(childNodeId: string) {
 
   const { text: summary } = await generateText({
     model: getModel(),
-    messages: [
-      {
-        role: "system",
-        content:
-          "Summarize the following conversation concisely in 2-3 sentences. Capture the key question and answer.",
-      },
-      { role: "user", content: conversationText },
-    ],
+    system:
+      "Summarize the following conversation concisely in 2-3 sentences. Capture the key question and answer.",
+    messages: [{ role: "user", content: conversationText }],
   });
 
   const result = await appendMessage(
@@ -348,7 +343,7 @@ export async function generateTitle(nodeId: string) {
   const nodeMsgs = await getNodeMessages(nodeId);
   const userMsgs = nodeMsgs.filter((m) => m.role === "user");
 
-  if (userMsgs.length < 3) return null;
+  if (userMsgs.length === 0 || userMsgs.length > 3) return null;
 
   const messagesText = userMsgs
     .slice(0, 4)
@@ -357,14 +352,9 @@ export async function generateTitle(nodeId: string) {
 
   const { text: title } = await generateText({
     model: getModel(),
-    messages: [
-      {
-        role: "system",
-        content:
-          "Generate a very short title (max 6 words) for a conversation based on the user's messages. Return only the title, no quotes or punctuation.",
-      },
-      { role: "user", content: messagesText },
-    ],
+    system:
+      "Generate a very short title (max 6 words) for a conversation based on the user's messages. Return only the title, no quotes or punctuation.",
+    messages: [{ role: "user", content: messagesText }],
   });
 
   const cleanTitle = title.trim().slice(0, 80);
@@ -374,4 +364,18 @@ export async function generateTitle(nodeId: string) {
     .set({ title: cleanTitle })
     .where(eq(chats.id, node.chatId));
   return cleanTitle;
+}
+
+export async function getBranchCounts(): Promise<Record<string, number>> {
+  const session = await requireAuth();
+  const result = await db
+    .select({
+      chatId: nodes.chatId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(nodes)
+    .where(eq(nodes.userId, session.user.id))
+    .groupBy(nodes.chatId);
+
+  return Object.fromEntries(result.map((r) => [r.chatId, r.count]));
 }
