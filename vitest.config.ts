@@ -12,6 +12,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/__tests__/setup.ts"],
-    // React component tests use .test.tsx and jsdom environment
+    env: {
+      APP_ENCRYPTION_KEY: "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3Itdml0ZXN0LXN1aXRl",
+    },
   },
 });

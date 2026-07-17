@@ -8,17 +8,27 @@ function getSystemModel(): LanguageModel {
   if (systemModel) return systemModel;
 
   const provider = process.env.SYSTEM_MODEL_PROVIDER ?? "openai";
-  const model = process.env.SYSTEM_MODEL_NAME ?? "gpt-4o-mini";
-  const apiKey = process.env.SYSTEM_MODEL_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
 
   if (provider === "openai") {
+    const model = process.env.SYSTEM_MODEL_NAME ?? "gpt-4o-mini";
+    const apiKey = process.env.SYSTEM_MODEL_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
     const api = createOpenAI({ apiKey });
     systemModel = api.chat(model);
     return systemModel;
   }
 
+  if (provider === "openrouter") {
+    const model = process.env.SYSTEM_MODEL_NAME ?? "openrouter/free";
+    const api = createOpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY ?? "",
+      baseURL: "https://openrouter.ai/api/v1",
+    });
+    systemModel = api.chat(model);
+    return systemModel;
+  }
+
   throw new Error(
-    `System model provider "${provider}" not supported. Use "openai" or set SYSTEM_MODEL_PROVIDER to a supported provider.`,
+    `System model provider "${provider}" not supported. Use "openai" or "openrouter".`,
   );
 }
 

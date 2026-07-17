@@ -2,21 +2,17 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
+export const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+if (!encryptionKey) {
+  throw new Error(
+    "APP_ENCRYPTION_KEY environment variable is required for encrypting API keys. " +
+    "Generate one with: openssl rand -base64 32",
+  );
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ...(process.env.APP_ENCRYPTION_KEY
-    ? {
-        statement_timeout: 30000,
-      }
-    : {}),
-});
-
-pool.on("connect", async (client) => {
-  if (process.env.APP_ENCRYPTION_KEY) {
-    await client.query("SET SESSION app.encryption_key = $1", [
-      process.env.APP_ENCRYPTION_KEY,
-    ]);
-  }
+  statement_timeout: 30000,
 });
 
 export const db = drizzle(pool, { schema });

@@ -30,6 +30,12 @@ const modelCatalog: Record<string, ModelProviderConfig> = {
     constructor: "createMistral",
     models: ["mistral-large-latest", "mistral-small-latest"],
   },
+  openrouter: {
+    package: "@ai-sdk/openai",
+    constructor: "createOpenAI",
+    baseURL: "https://openrouter.ai/api/v1",
+    models: ["openrouter/free"],
+  },
 };
 
 export function getModelCatalog() {

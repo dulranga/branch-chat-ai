@@ -1,40 +1,5 @@
-import { readFileSync } from "fs";
-import { join } from "path";
-import { load as yamlLoad } from "js-yaml";
 import type { LanguageModel } from "ai";
-import type { ModelProviderConfig } from "@/lib/types";
-
-let catalog: Record<string, ModelProviderConfig> | null = null;
-
-function loadCatalog(): Record<string, ModelProviderConfig> {
-  if (catalog) return catalog;
-  const raw = readFileSync(
-    join(process.cwd(), "src/config/models.yaml"),
-    "utf-8",
-  );
-  catalog = yamlLoad(raw) as Record<string, ModelProviderConfig>;
-  return catalog;
-}
-
-export function getModelCatalog() {
-  return loadCatalog();
-}
-
-export function getProviders() {
-  return Object.keys(loadCatalog());
-}
-
-export function getProviderConfig(provider: string) {
-  return loadCatalog()[provider] ?? null;
-}
-
-export function getModelsForProvider(provider: string) {
-  return loadCatalog()[provider]?.models ?? [];
-}
-
-export function formatProviderName(provider: string): string {
-  return provider.charAt(0).toUpperCase() + provider.slice(1);
-}
+import { getProviderConfig } from "@/config/models";
 
 export async function resolveProviderModel(
   provider: string,
@@ -57,6 +22,7 @@ export async function resolveProviderModel(
 
   const factory = mod[config.constructor] as (opts: {
     apiKey: string;
+    baseURL?: string;
   }) => { chat: (model: string) => unknown };
   if (!factory) {
     throw new Error(
@@ -64,6 +30,6 @@ export async function resolveProviderModel(
     );
   }
 
-  const instance = factory({ apiKey });
+  const instance = factory({ apiKey, baseURL: config.baseURL });
   return instance.chat(model) as LanguageModel;
 }

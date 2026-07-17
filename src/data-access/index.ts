@@ -8,7 +8,7 @@ import { user, userModels } from "@/lib/schema";
 import { headers } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, encryptionKey } from "@/lib/db";
 import { chats, messages, nodes } from "@/lib/schema";
 
 async function requireAuth() {
@@ -388,7 +388,7 @@ export async function createUserModel(
       ${provider},
       ${model},
       ${name},
-      pgp_sym_encrypt(${apiKey}, current_setting('app.encryption_key'))
+      pgp_sym_encrypt(${apiKey}, ${encryptionKey})
     )
   `);
 
@@ -437,7 +437,7 @@ export async function updateModelApiKey(modelId: string, apiKey: string) {
 
   await db.execute(sql`
     UPDATE user_models
-    SET api_key_encrypted = pgp_sym_encrypt(${apiKey}, current_setting('app.encryption_key'))
+    SET api_key_encrypted = pgp_sym_encrypt(${apiKey}, ${encryptionKey})
     WHERE id = ${modelId}
   `);
 }
@@ -531,7 +531,7 @@ export async function getLatestUserModel() {
 export async function decryptApiKey(modelId: string): Promise<string> {
   const session = await requireAuth();
   const result = await db.execute(sql`
-    SELECT pgp_sym_decrypt(api_key_encrypted, current_setting('app.encryption_key')) AS api_key
+    SELECT pgp_sym_decrypt(api_key_encrypted, ${encryptionKey}) AS api_key
     FROM user_models
     WHERE id = ${modelId} AND user_id = ${session.user.id}
   `);
