@@ -55,7 +55,7 @@ Required environment variables:
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `BETTER_AUTH_SECRET` | Random secret ≥ 32 characters |
-| `BETTER_AUTH_URL` | Public app URL (e.g. `http://localhost:3000`) |
+| `BETTER_AUTH_URL` | Public app URL (e.g. `http://localhost:6011`) |
 | `APP_ENCRYPTION_KEY` | 32-byte key for pgp_sym_encrypt |
 | `SYSTEM_MODEL_*` | Model config for internal tasks (title gen, etc.) |
 | Provider keys | `OPENAI_API_KEY`, etc. (per provider) |
@@ -76,7 +76,7 @@ npx drizzle-kit generate
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:6011](http://localhost:6011).
 
 ## Scripts
 

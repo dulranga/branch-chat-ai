@@ -22,7 +22,7 @@ const variables = [
   },
   { name: "API_KEY", required: true, value: "<YOUR_API_KEY_HERE>" },
   { name: "NODE_ENV", required: false, value: "production" },
-  { name: "PORT", required: false, value: "3000" },
+  { name: "PORT", required: false, value: "6011" },
 ];
 
 const handleCopy = () => {
