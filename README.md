@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Branching Chat
+
+An AI chat application where conversations form a tree structure. Each node is a linear message exchange; forking creates a child node that inherits its ancestor chain's context.
+
+Built with [Next.js 16](https://nextjs.org), [React 19](https://react.dev), and the [Vercel AI SDK](https://sdk.vercel.ai/docs).
+
+## Features
+
+- **Branching conversations** — fork any message into a new parallel thread. The full ancestor chain is preserved as context.
+- **Multi-provider** — OpenAI, Anthropic, Google, Mistral, Groq, and more via a pluggable Model Catalog.
+- **Tree visualization** — interactive graph of the conversation tree using [xyflow/react](https://xyflow.com).
+- **Model management** — add, configure, and switch between multiple AI models with encrypted API key storage.
+- **Reasoning levels** — per-message control of thinking effort (`none` → `xhigh`).
+- **Message editing** — edit your last message with full audit trail (originals preserved).
+- **Rich rendering** — code highlighting (highlight.js), math (katex via streamdown), diagrams (mermaid), and CJK support via [StreamDown](https://streamdown.dev).
+- **Three-panel layout** — sidebar (chat list), chat area (messages), tree panel (node graph). Collapses to mobile-friendly two-panel view.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, shadcn/ui, Radix UI, Tailwind CSS v4 |
+| AI | Vercel AI SDK v7 (`ai`, `@ai-sdk/*`) |
+| Database | PostgreSQL + Drizzle ORM |
+| Auth | [better-auth](https://www.better-auth.com) |
+| Encryption | pgcrypto (`pgp_sym_encrypt`/`pgp_sym_decrypt`) |
+| Tree graph | [@xyflow/react](https://xyflow.com) |
+| Panels | react-resizable-panels |
+| Rendering | StreamDown (CJK, code, math, mermaid) |
+| Linting | Biome |
+| Testing | Vitest, Playwright |
+| Package manager | npm |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL database
+
+### Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Copy environment variables and fill them in
+cp .env.example .env
+```
+
+Required environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Random secret ≥ 32 characters |
+| `BETTER_AUTH_URL` | Public app URL (e.g. `http://localhost:3000`) |
+| `APP_ENCRYPTION_KEY` | 32-byte key for pgp_sym_encrypt |
+| `SYSTEM_MODEL_*` | Model config for internal tasks (title gen, etc.) |
+| Provider keys | `OPENAI_API_KEY`, etc. (per provider) |
+
+### Database
+
+```bash
+# Run migrations
+npx drizzle-kit migrate
+
+# (Optional) generate migrations after schema changes
+npx drizzle-kit generate
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Biome check |
+| `npm run format` | Biome format |
+| `npm run typecheck` | TypeScript type check |
+| `npm run test` | Run Vitest tests |
+| `npm run test:watch` | Vitest watch mode |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/              # Next.js App Router (pages, API routes)
+├── components/       # React components (shadcn/ui, custom)
+├── config/           # Model catalog (models.yaml) and other config
+├── data-access/      # Drizzle schema, queries, mutations
+├── hooks/            # Custom React hooks
+└── lib/              # Utilities, AI provider factory, auth
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Domain Model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [`CONTEXT.md`](./CONTEXT.md) for the full glossary of domain terms — Chat, Node, Materialized Path, Ancestor Chain, User Model, and more.
